@@ -1,0 +1,9 @@
+{
+  "version": 146,
+  "categories": [
+    {"key": "产品船", "behavior": "ship", "builtin": true, "enabled": true, "order": 1},
+    {"key": "地面场地", "behavior": "place", "builtin": false, "enabled": true, "order": 2},
+    {"key": "其他", "behavior": "place", "builtin": false, "enabled": true, "order": 3},
+    {"key": "设备", "behavior": "device", "builtin": false, "enabled": true, "order": 4}
+  ]
+}

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鉴权设置</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+<link href="/static/css/theme.css" rel="stylesheet">
+<link href="/static/css/v16.css" rel="stylesheet">
+<style>
+  body{background:var(--v16-bg,#eef1f6)}
+  .wrap{max-width:820px;margin:0 auto;padding:14px 12px 96px}
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .top .bk{font-size:15px;color:var(--v16-pri,#1d4ed8);text-decoration:none;font-weight:600}
+  .top h5{margin:0;font-weight:700}
+  .card-x{background:#fff;border:1px solid var(--v16-line,#e3e7ee);border-radius:12px;padding:12px 13px;margin-bottom:12px}
+  .card-x h6{margin:0 0 8px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px}
+  .card-x.admin{border-color:#c7d2fe;background:#fbfcff}
+  .badge-n{background:#eaf0ff;color:#1d4ed8;border-radius:20px;padding:1px 9px;font-size:12px;font-weight:600}
+  .badge-n.warn{background:#fef3c7;color:#b45309}
+  .row-x{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f0f3f8}
+  .row-x:first-of-type{border-top:0}
+  .row-x .nm{flex:1;min-width:0}
+  .row-x .nm b{font-size:14px}
+  .row-x .nm small{display:block;color:#6b7488;font-size:11.5px;margin-top:2px;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .del{border:1px solid #f0c7c7;background:#fff;color:#dc2626;border-radius:8px;font-size:12px;padding:3px 9px}
+  .add{border:1px dashed #b9c6e8;background:#f7f9ff;color:#1d4ed8;border-radius:9px;
+       font-size:13px;padding:7px 12px;font-weight:600}
+  .empty{color:#8b93a7;font-size:13px;padding:6px 0}
+  .sub{color:#6b7488;font-size:12px;margin:2px 0 8px}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--v16-line,#e3e7ee);
+       padding:10px 14px;display:flex;align-items:center;justify-content:space-between;z-index:20}
+  .bar .hint{font-size:12.5px;color:#6b7488;line-height:1.5}
+  .bar .hint b{color:#1d4ed8}
+  .btn-save{background:#1d4ed8;color:#fff;border:0;border-radius:9px;padding:9px 22px;font-weight:700;font-size:14px}
+  .btn-save[disabled]{opacity:.55}
+  /* 选择器弹层 */
+  .mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,28,52,.42);display:none;z-index:40}
+  .mask.on{display:block}
+  .dlg{position:absolute;left:50%;transform:translateX(-50%);top:5vh;width:94%;max-width:560px;background:#fff;
+       border-radius:14px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+  .dlg-h{padding:12px 14px;border-bottom:1px solid #eef1f6;display:flex;align-items:center;gap:8px}
+  .dlg-h b{flex:1;font-size:15px}
+  .dlg-h .x{border:0;background:transparent;font-size:20px;line-height:1;color:#8b93a7}
+  .dlg-q{padding:9px 12px 0}
+  .dlg-q input{width:100%;border:1px solid var(--v16-line,#e3e7ee);border-radius:9px;padding:8px 10px;font-size:13.5px}
+  .crumbs{padding:7px 12px 0;font-size:12.5px;color:#6b7488;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .crumbs a{color:#1d4ed8;text-decoration:none;cursor:pointer}
+  .dlg-b{overflow:auto;padding:6px 12px 12px;flex:1}
+  .dept-item{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #f4f6fa;cursor:pointer}
+  .dept-item .n{flex:1;font-size:13.5px}
+  .dept-item .c{font-size:11.5px;color:#8b93a7}
+  .dept-item .go{color:#b6bdc9;font-size:15px}
+  .p-item{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #f4f6fa}
+  .p-item .n{flex:1;font-size:13.5px}
+  .p-item .d{font-size:11.5px;color:#8b93a7}
+  .p-item button{border:1px solid #cfd8e3;background:#fff;border-radius:8px;font-size:12px;padding:3px 10px;color:#1d4ed8}
+  .p-item.on button{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+  .pickbar{padding:8px 12px;border-top:1px solid #eef1f6;display:flex;justify-content:flex-end;gap:8px}
+  .pickbar .ok{background:#1d4ed8;color:#fff;border:0;border-radius:9px;padding:8px 18px;font-weight:600}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:rgba(20,30,50,.9);color:#fff;
+         padding:9px 16px;border-radius:20px;font-size:13px;display:none;z-index:60}
+</style>
+<script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16">
+<div class="wrap">
+  <div class="top">
+    <a class="bk" href="/safety">‹ 返回看板</a>
+    <h5>鉴权设置</h5>
+  </div>
+
+  <!-- ① 超管 -->
+  <div class="card-x admin">
+    <h6>超管 <span class="badge-n">{{ admin_count }} 人</span></h6>
+    <div id="adminDeptList"></div>
+    <div id="adminPeopleList"></div>
+    <div style="margin-top:8px">
+      <button class="add" onclick="openPicker('dept','admin')">＋ 添加部门 / 科室</button>
+      <button class="add" onclick="openPicker('person','admin')">＋ 添加人员</button>
+    </div>
+  </div>
+
+  <!-- ② 审核权 -->
+  <div class="card-x">
+    <h6>谁能审核 <span class="badge-n">{{ count }} 人</span></h6>
+    <div class="sub">
+      有审核权的人才能处理<b>违章处罚审批</b>和<b>亮点/问题审核</b>，也只有他们能被指定为审批人。
+      超管永远有审核权。
+    </div>
+    <div id="deptList"></div>
+    <div id="peopleList"></div>
+    <div style="margin-top:8px">
+      <button class="add" onclick="openPicker('dept','review')">＋ 添加部门 / 科室</button>
+      <button class="add" onclick="openPicker('person','review')">＋ 添加人员</button>
+    </div>
+  </div>
+
+  <div class="card-x">
+    <h6>名单来源</h6>
+    <div class="sub">
+      部门与人员来自船海智云组织架构（缓存时间 {{ org_saved_at or '—' }}）。
+      <a href="javascript:;" onclick="refreshOrg()">点这里重新拉取最新组织架构</a>（约 3 万人，需十几秒）。
+    </div>
+  </div>
+</div>
+
+<div class="bar">
+  <div class="hint">超管 <b id="adminCnt">{{ admin_count }}</b> 人 · 审核人 <b id="cnt">{{ count }}</b> 人</div>
+  <div><button class="btn-save" id="saveBtn" onclick="saveAll()">保存并生效</button></div>
+</div>
+
+<!-- 部门 / 人员 选择器 -->
+<div class="mask" id="mask">
+  <div class="dlg">
+    <div class="dlg-h"><b id="dlgTitle">选择部门</b><button class="x" onclick="closePicker()">×</button></div>
+    <div class="dlg-q"><input id="kw" placeholder="搜索部门或姓名，直接敲字" oninput="onSearch()"></div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="dlg-b" id="dlgBody"></div>
+    <div class="pickbar" id="pickbar"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+var MODE = 'dept';        // dept | person
+var TARGET = 'review';    // review | admin
+var CUR = '';             // 当前浏览的部门 id
+var PICK = {};            // 人员模式下已勾选：phone -> {name, phone, dept}
+
+// 两组名单：审核人 / 超管
+var DEPTS = {{ dept_rows|tojson }};              // 审核部门
+var PEOPLE = {{ people_rows|tojson }};           // 审核人（单独指定）
+var ADM_DEPTS = {{ admin_dept_rows|tojson }};    // 超管部门
+var ADM_PEOPLE = {{ admin_people_rows|tojson }}; // 超管（单独指定）
+
+function D() { return TARGET === 'admin' ? ADM_DEPTS : DEPTS; }
+function P() { return TARGET === 'admin' ? ADM_PEOPLE : PEOPLE; }
+
+function toast(m) {
+  var t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  setTimeout(function () { t.style.display = 'none'; }, 2000);
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+  });
+}
+
+/* ---------- 列表渲染 ---------- */
+function renderDeptBox(boxId, list, kind) {
+  var h = '';
+  list.forEach(function (d, i) {
+    h += '<div class="row-x"><div class="nm"><b>' + esc(d.full || d.path) + '</b>'
+       + '<small>' + (d.deep ? '含下级部门' : '仅本部门') + ' · ' + (d.count || 0) + ' 人</small></div>'
+       + '<button class="del" onclick="rmDept(' + i + ',\'' + kind + '\')">删除</button></div>';
+  });
+  document.getElementById(boxId).innerHTML = h;
+}
+function renderPeopleBox(boxId, list, kind) {
+  var h = '';
+  list.forEach(function (p, i) {
+    h += '<div class="row-x"><div class="nm"><b>' + esc(p.name || p.phone) + '</b>'
+       + '<small>' + esc(p.dept || '') + (p.phone ? ' · ' + esc(p.phone) : '') + '</small></div>'
+       + '<button class="del" onclick="rmPerson(' + i + ',\'' + kind + '\')">删除</button></div>';
+  });
+  document.getElementById(boxId).innerHTML = h;
+}
+function renderLists() {
+  renderDeptBox('adminDeptList', ADM_DEPTS, 'admin');
+  renderPeopleBox('adminPeopleList', ADM_PEOPLE, 'admin');
+
+  renderDeptBox('deptList', DEPTS, 'review');
+  renderPeopleBox('peopleList', PEOPLE, 'review');
+  document.getElementById('peopleList').innerHTML =
+      document.getElementById('peopleList').innerHTML
+      || '<div class="empty">还没有单独指定的人</div>';
+}
+function rmDept(i, kind) { (kind === 'admin' ? ADM_DEPTS : DEPTS).splice(i, 1); renderLists(); }
+function rmPerson(i, kind) { (kind === 'admin' ? ADM_PEOPLE : PEOPLE).splice(i, 1); renderLists(); }
+
+/* ---------- 选择器 ---------- */
+function openPicker(mode, target) {
+  MODE = mode; TARGET = target || 'review'; CUR = ''; PICK = {};
+  var who = (TARGET === 'admin') ? '超管' : '审核人';
+  document.getElementById('dlgTitle').textContent =
+      (mode === 'dept') ? ('选择部门 / 科室（设为' + who + '）') : ('选择人员（设为' + who + '）');
+  document.getElementById('kw').value = '';
+  document.getElementById('mask').classList.add('on');
+  document.getElementById('pickbar').innerHTML = (mode === 'dept')
+    ? '<button class="ok" onclick="pickDeptHere()">把这个部门设为' + who + '</button>'
+    : '<button class="ok" onclick="pickPersons()">添加选中的人</button>';
+  loadDepts('');
+}
+function closePicker() { document.getElementById('mask').classList.remove('on'); }
+
+function onSearch() {
+  var kw = document.getElementById('kw').value.trim();
+  if (!kw) { loadDepts(CUR); return; }
+  fetch('/api/org/search?kw=' + encodeURIComponent(kw))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var h = '';
+      (d.depts || []).forEach(function (x) {
+        var act = (MODE === 'dept') ? ("pickDeptId('" + x.id + "')") : ("loadDepts('" + x.id + "')");
+        h += '<div class="dept-item" onclick="' + act + '">'
+           + '<span class="n">' + esc(x.short) + '</span>'
+           + '<span class="c">' + x.total + ' 人</span>'
+           + '<span class="go">' + (MODE === 'dept' ? '＋' : '›') + '</span></div>';
+      });
+      (d.people || []).forEach(function (p) {
+        if (MODE === 'dept') {
+          h += '<div class="p-item"><span class="n">' + esc(p.name) + '</span>'
+             + '<span class="d">' + esc(p.dept) + '</span></div>';
+        } else {
+          h += '<div class="p-item' + (PICK[p.phone] ? ' on' : '') + '">'
+             + '<span class="n">' + esc(p.name) + '</span>'
+             + '<span class="d">' + esc(p.dept) + '</span>'
+             + '<button onclick="togglePick(\'' + p.phone + '\',\'' + esc(p.name) + '\',\''
+             + esc(p.dept) + '\')">' + (PICK[p.phone] ? '已选' : '选择') + '</button></div>';
+        }
+      });
+      if (!h) h = '<div class="empty">没找到匹配的部门或人员</div>';
+      document.getElementById('crumbs').innerHTML = '搜索结果：' + esc(kw);
+      document.getElementById('dlgBody').innerHTML = h;
+    });
+}
+
+function loadDepts(parent) {
+  CUR = parent || '';
+  fetch('/api/org/depts?parent=' + encodeURIComponent(parent || ''))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var cr = '';
+      (d.crumbs || []).forEach(function (c, i, a) {
+        cr += (i ? ' › ' : '') + '<a onclick="loadDepts(\'' + c.id + '\')">' + esc(c.name) + '</a>';
+      });
+      document.getElementById('crumbs').innerHTML = cr || '';
+      var h = '';
+      (d.items || []).forEach(function (x) {
+        var act = (MODE === 'dept') ? ("pickDeptId('" + x.id + "')") : ("loadDepts('" + x.id + "')");
+        h += '<div class="dept-item"><span class="n" onclick="' + act + '">'
+           + esc(x.name) + '</span><span class="c">' + x.total + ' 人</span>'
+           + '<span class="go" onclick="loadDepts(\'' + x.id + '\')">›</span></div>';
+      });
+      if (MODE === 'person' && parent) {
+        h += '<div class="empty" style="margin-top:6px">本部门人员：</div>';
+      }
+      document.getElementById('dlgBody').innerHTML = h || '<div class="empty">没有下级部门</div>';
+      if (MODE === 'person' && parent) loadPeople(parent);
+    });
+}
+
+function loadPeople(deptId) {
+  fetch('/api/org/people?dept=' + encodeURIComponent(deptId) + '&limit=400')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var h = '';
+      (d.items || []).forEach(function (p) {
+        h += '<div class="p-item' + (PICK[p.phone] ? ' on' : '') + '">'
+           + '<span class="n">' + esc(p.name) + '</span>'
+           + '<span class="d">' + esc(p.dept) + '</span>'
+           + '<button onclick="togglePick(\'' + p.phone + '\',\'' + esc(p.name) + '\',\''
+           + esc(p.dept) + '\')">' + (PICK[p.phone] ? '已选' : '选择') + '</button></div>';
+      });
+      var box = document.getElementById('dlgBody');
+      box.innerHTML = box.innerHTML + (h || '<div class="empty">该部门没有直属人员</div>');
+    });
+}
+
+function togglePick(phone, name, dept) {
+  if (PICK[phone]) delete PICK[phone];
+  else PICK[phone] = { name: name, phone: phone, dept: dept };
+  var kw = document.getElementById('kw').value.trim();
+  if (kw) onSearch(); else loadDepts(CUR);
+}
+
+function pickDeptId(id) {
+  fetch('/api/org/dept?id=' + encodeURIComponent(id))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { toast('没找到这个部门'); return; }
+      addDept(d.item);
+    });
+}
+function pickDeptHere() {
+  if (!CUR) { toast('先点进一个部门，再点这里'); return; }
+  pickDeptId(CUR);
+}
+function addDept(item) {
+  var list = D();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id && list[i].id === item.id) { toast('这个部门已经在名单里了'); closePicker(); return; }
+  }
+  list.push({ id: item.id, path: item.short, full: item.short, deep: true, count: item.total });
+  renderLists(); closePicker();
+  toast('已添加' + (TARGET === 'admin' ? '超管' : '审核') + '部门：' + item.short);
+}
+function pickPersons() {
+  var list = P(), n = 0;
+  for (var k in PICK) { list.push(PICK[k]); n++; }
+  if (n) { renderLists(); toast('已添加 ' + n + ' 人' + (TARGET === 'admin' ? '为超管' : '')); }
+  closePicker();
+}
+
+/* ---------- 保存 ---------- */
+function saveAll() {
+  var btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  fetch('/api/review/save', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ depts: DEPTS, people: PEOPLE,
+                           admin_depts: ADM_DEPTS, admin_people: ADM_PEOPLE })
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    btn.disabled = false; btn.textContent = '保存并生效';
+    if (d.ok) {
+      document.getElementById('cnt').textContent = d.count;
+      document.getElementById('adminCnt').textContent = d.admin_count;
+      toast('已保存：超管 ' + d.admin_count + ' 人 · 审核人 ' + d.count + ' 人');
+    } else { toast(d.msg || '保存失败'); }
+  }).catch(function () {
+    btn.disabled = false; btn.textContent = '保存并生效'; toast('保存失败，请重试');
+  });
+}
+function refreshOrg() {
+  toast('正在拉取组织架构…');
+  fetch('/api/org/refresh', { method: 'POST' }).then(function (r) { return r.json(); })
+    .then(function (d) { toast(d.ok ? ('已更新：部门 ' + d.depts + ' 个，人员 ' + d.users + ' 人') : '更新失败'); });
+}
+
+renderLists();
+</script>
+</body>
+</html>

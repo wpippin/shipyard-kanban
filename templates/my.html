@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的 - 船舶完整性管理</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <style>
+        /* ===== 标题栏：三栏 Grid，保证标题严格居中 ===== */
+        .board-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+        .board-header .board-title { grid-column: 2; }
+        .board-header .login-side { grid-column: 3; justify-self: end; white-space: nowrap; }
+
+        /* 移动端小屏：Excel 表格保持原生 table 布局，横向可滑动，不换卡片 */
+        @media (max-width: 767.98px) {
+            .container-fluid { padding: 12px 8px !important; }
+            .board-header { grid-template-columns: 1fr; gap: 8px; }
+            .board-header .board-title { grid-column: 1; }
+            .board-header .login-side { grid-column: 1; justify-self: center; }
+            .action-bar { flex-direction: column; align-items: stretch; padding: 0 4px; }
+            .action-bar .btn { width: 100%; }
+            #myTable { width: max-content; min-width: 100%; table-layout: auto; }
+            #myTable thead th { position: sticky; top: 0; z-index: 5; font-size: 12px; white-space: nowrap; }
+            #myTable tbody tr { border: none; border-bottom: 1px solid #e9ecef; margin: 0; padding: 0; background: #fff; box-shadow: none; }
+            #myTable tbody tr:hover { background: #f8f9fa; }
+            #myTable td {
+                border: none !important; padding: 6px 6px; font-size: 12px; line-height: 1.35;
+                white-space: nowrap; vertical-align: middle;
+            }
+            #myTable td[data-label="问题描述"], #myTable td[data-label="责任链"] { white-space: normal; min-width: 150px; max-width: 220px; }
+            #myTable td[data-label="序号"] { min-width: 42px; }
+            /* 序号 + 系统名称两列固定，拖动时钉在左侧（sticky 列必须自带背景，否则滚动内容会透出） */
+            #myTable th:nth-child(1), #myTable td:nth-child(1) {
+                position: sticky; left: 0; z-index: 2; background: #fff;
+                width: 42px; min-width: 42px; max-width: 42px;
+            }
+            #myTable thead th:nth-child(1) { z-index: 7; }
+            #myTable thead th:nth-child(2) { z-index: 7; }
+            #myTable th:nth-child(2), #myTable td:nth-child(2) {
+                position: sticky; left: 42px; z-index: 2; background: #fff;
+                /* V1.4.3：改用 inset 单细线做列分隔，去掉外扩阴影——外扩阴影在手机 WebView 横向拖动时会留下黑色方框残影 */
+                box-shadow: inset -1px 0 0 #dee2e6;
+                width: 112px; min-width: 112px; max-width: 112px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #myTable th:nth-child(1), #myTable td:nth-child(1) {
+                -webkit-tap-highlight-color: transparent;
+            }
+            #myTable td, #myTable th { outline: none !important; }
+            #myTable thead th:nth-child(1), #myTable thead th:nth-child(2) { background: #212529; }
+            #myTable tbody tr:hover td:nth-child(1) { background: #f8f9fa; }
+            #myTable tbody tr:hover td:nth-child(2) { background: #f8f9fa; }
+            /* 系统名称列：定宽不撑开，系统名/船名两行均省略号，悬停可见全名 */
+            #myTable td[data-label="系统名称"] { font-size: 12.5px; padding-left: 4px; padding-right: 8px; }
+            #myTable td[data-label="系统名称"] a {
+                display: block; max-width: 100px; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap;
+            }
+            #myTable td[data-label="系统名称"] > div {
+                max-width: 100px; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px;
+            }
+            #myTable td[data-label="发起时间"] { min-width: 86px; font-size: 11px; }
+            #myTable td[data-label="当前状态"] { min-width: 90px; }
+            #myTable td[data-label="当前状态"] .badge { font-size: 10.5px; }
+            #myTable td[data-label="操作"] { min-width: 120px; }
+            #myTable td[data-label="操作"] .btn {
+                display: inline-block; width: auto; padding: 3px 7px; font-size: 11.5px; margin: 1px 1px; white-space: nowrap;
+            }
+            #myTable td[data-label="我的角色"] { min-width: 84px; }
+            #myTable td[data-label="我的角色"] .badge { font-size: 10px; }
+            .modal-dialog { margin: 10px auto; }
+        }
+        /* Tab 胶囊 */
+        .scope-tabs { list-style: none; padding-left: 0; margin-bottom: 0; display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+        .scope-tabs .nav-pills .nav-link { font-size: 14px; padding: 6px 14px; border-radius: 999px; }
+        .scope-tabs .nav-pills .nav-link.active { background: var(--sy-accent); color: #fff !important; }
+        html[data-theme="dark"] .scope-tabs .nav-pills .nav-link { color: var(--sy-text); }
+        html[data-theme="dark"] .scope-tabs .nav-pills .nav-link.active { background: var(--sy-accent); color: #0f172a !important; }
+        .badge-mini { font-weight: 600; }
+        .chain-text { color: #495057; font-size: 12.5px; word-break: break-all; }
+        .desc-text { color: #6c757d; font-size: 12.5px; word-break: break-all; }
+        /* 状态徽章配色（与看板一致） */
+        .st-closed { background: #198754; }
+        .st-new { background: #0d6efd; }
+        .st-warn { background: #ffc107; color: #212529; }
+        .st-danger { background: #dc3545; }
+        /* 统计数字卡片 */
+        .stat-num { font-size: 22px; font-weight: 700; line-height: 1.1; }
+        /* ===== V1.4.5 品牌：统一海工蓝（移植自样板页 boards.html，仅视觉；表格 sticky 列等布局样式一律不动） ===== */
+        :root {
+            --navy: #1d4ed8;            /* 主品牌（按钮/标题） */
+            --navy-deep: #1e3a8a;       /* 更深一档（按压） */
+            --blue: #2563eb;            /* 品牌亮蓝（强调/链接） */
+            --ink: #1e293b;             /* 主文字 */
+            --muted: #64748b;           /* 次级文字 */
+            --line: #e2e8f0;            /* 分隔线 */
+            --bg: #f5f7fa;              /* 页面底色 */
+            --card-radius: 12px;
+        }
+        body, body.bg-light { background: var(--bg) !important; color: var(--ink); }
+        /* 把 Bootstrap 主色统一到海工蓝，避免页面同时出现多种蓝色 */
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        /* 模态框内统一主操作按钮（海工蓝实底） */
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 9px;
+            font-weight: 600; box-shadow: 0 4px 12px rgba(20,64,107,.18); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        /* 线性图标尺寸（stroke=currentColor 的 svg 用它） */
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        /* 模态框统一精修 */
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 18px 50px rgba(10,35,70,.22); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.brand-head .modal-title { color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 9px; }
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        /* 登录区用户名：品牌色 + 内联图标 */
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+
+        /* ===== V1.5.2 用户中心顶部卡片美化 ===== */
+        .user-hero { border-radius: var(--sy-radius-lg, 16px); overflow: hidden; }
+        .user-hero .card-body { padding: 18px 20px; }
+        /* V1.16：身份标贴在头像右上角 */
+        .user-avatar-wrap { position: relative; flex: 0 0 auto; }
+        .id-badge {
+            position: absolute; right: -10px; top: -10px; z-index: 3;
+            background: var(--v16-pri, #1d4ed8); color: #fff; border-radius: 999px;
+            font-size: 10px; line-height: 1; padding: 3px 7px; white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(29,78,216,.28);
+        }
+        .user-avatar {
+            width: 52px; height: 52px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--sy-accent-2), var(--sy-accent));
+            color: #fff; font-size: 20px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            flex: 0 0 52px; box-shadow: 0 4px 12px rgba(14,165,233,.25);
+        }
+        .stats-row {
+            display: flex; justify-content: center; align-items: center;
+            gap: 24px; margin-top: 18px; padding-top: 16px;
+            border-top: 1px solid var(--sy-border);
+        }
+        .stat-item { text-align: center; min-width: 80px; }
+        .stat-item .stat-num { font-size: 26px; font-weight: 800; line-height: 1; color: var(--sy-text); }
+        .stat-item .stat-num.text-danger { color: var(--sy-danger) !important; }
+        .stat-item .stat-num.text-success { color: var(--sy-success) !important; }
+        .stat-label { font-size: 12px; color: var(--sy-muted); margin-top: 6px; }
+        .stat-divider { width: 1px; height: 34px; background: var(--sy-border); }
+        .user-actions .btn { border-radius: 999px; font-weight: 600; }
+
+        /* ===== 责任链可视化标签 ===== */
+        .chain-cell { line-height: 1.5; }
+        /* V1.16.3：每个角色**独占一行**（原来是 inline-flex，会挤成一长条） */
+        .chain-group {
+            display: flex; align-items: center; gap: 4px;
+            flex-wrap: wrap; width: -moz-fit-content; width: fit-content; max-width: 100%;
+            margin: 0 0 5px 0;
+            padding: 4px 6px; border-radius: 8px;
+            background: var(--sy-surface-2); border: 1px solid var(--sy-border);
+        }
+        .chain-group:last-child { margin-bottom: 0; }
+        .chain-role {
+            font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+            background: var(--sy-surface-3); color: var(--sy-text);
+        }
+        .chain-name {
+            font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+            background: var(--sy-accent-soft); color: var(--sy-accent-2);
+        }
+        html[data-theme="dark"] .chain-group { background: rgba(56, 189, 248, .08); border-color: rgba(125, 211, 252, .25); }
+        html[data-theme="dark"] .chain-role { background: rgba(15, 23, 42, .5); color: #f8fafc; }
+        html[data-theme="dark"] .chain-name { background: rgba(125, 211, 252, .18); color: #7dd3fc; }
+
+        /* ===================== V1.8 「我的」页整体收紧（用户反馈"太乱"）===================== */
+        body.v16 { background: var(--v16-bg) !important; color: var(--v16-txt); }
+
+        /* 顶栏：和看板列表的 v16-top 一个气质 */
+        .board-header.mb-3 { margin-bottom: 12px !important; }
+        .board-header .board-title { font-size: 20px; font-weight: 800; letter-spacing: .5px; }
+        .board-header .board-title small { font-size: 12px !important; font-weight: 400; margin-top: 2px !important; }
+
+        /* 卡片统一：细描边 + 轻阴影（原来是很重的 Bootstrap 阴影） */
+        .card { border: 1px solid var(--v16-line) !important; border-radius: 12px !important; }
+        .card.shadow-sm, .card.shadow { box-shadow: 0 1px 2px rgba(16, 24, 40, .04) !important; }
+
+        /* 身份卡 */
+        .user-hero { border-radius: 14px !important; margin-bottom: 12px !important; }
+        .user-hero .card-body { padding: 14px 16px !important; }
+        .user-avatar {
+            width: 40px !important; height: 40px !important; font-size: 16px !important;
+            background: linear-gradient(135deg, var(--v16-pri), #4a7ae0) !important; color: #fff !important;
+        }
+        #heroName { font-size: 16px !important; }
+        /* V1.20：待我审批 → 紧凑行（标题 + 类型·时间 + 右箭头，去掉大 # 图标） */
+        .appr-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px;
+            border-bottom: 1px solid var(--v16-line); text-decoration: none; }
+        .appr-row:last-child { border-bottom: none; }
+        .appr-row .appr-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .appr-row .appr-nm { font-size: 14px; font-weight: 600; color: var(--v16-txt);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .appr-row .appr-ds { font-size: 12px; color: var(--v16-muted);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .appr-row .appr-arrow { flex: 0 0 auto; width: 16px; height: 16px; color: #94a3b8; }
+        .appr-row:active { background: #f8fafc; }
+        .badge-soft { font-size: 11.5px; padding: 2px 8px; }
+        .badge-soft .dot { width: 5px; height: 5px; }
+        .badge-soft.sso { background: var(--v16-okbg); color: var(--v16-ok); }
+        .badge-soft.sso .dot { background: var(--v16-ok); }
+
+        /* 三个统计数字：小一号、别用大红色 */
+        .stats-row { margin-top: 12px !important; padding-top: 12px !important; border-top: 1px solid var(--v16-line) !important; }
+        .stat-num { font-size: 20px !important; font-weight: 700; line-height: 1.2; }
+        .stat-num.text-danger { color: var(--v16-bad) !important; }
+        .stat-num.text-success { color: var(--v16-ok) !important; }
+        .stat-label { font-size: 11.5px !important; color: var(--v16-sub) !important; }
+
+        /* Tab：换成全站药丸（不再是 Bootstrap 深色块） */
+        .scope-tabs { gap: 8px; margin-bottom: 10px !important; }
+        .scope-tabs .nav-link {
+            border: 1px solid var(--v16-line); background: var(--v16-card); color: var(--v16-txt);
+            border-radius: 999px !important; font-size: 13px; font-weight: 600;
+            padding: 6px 14px !important; display: inline-flex; align-items: center; gap: 4px;
+        }
+        .scope-tabs .nav-link.active { background: var(--v16-pri) !important; border-color: var(--v16-pri) !important; color: #fff !important; }
+        .scope-tabs .nav-link .badge { background: var(--v16-graybg) !important; color: var(--v16-sub) !important; font-weight: 700; }
+        .scope-tabs .nav-link.active .badge { background: rgba(255, 255, 255, .25) !important; color: #fff !important; }
+
+        /* V1.36：高级筛选面板（由顶部漏斗按钮唤出，标题栏已删） */
+        .v16-filter .card-body { padding: 10px 12px !important; }
+        #v16FilterBody .form-label { font-size: 11.5px !important; font-weight: 600 !important; color: var(--v16-sub) !important; margin-bottom: 3px !important; }
+        #v16FilterBody .form-control, #v16FilterBody .form-select, #v16FilterBody .btn {
+            font-size: 12.5px !important; padding: 5px 10px !important; border-radius: 8px !important;
+            border-color: var(--v16-line) !important; min-height: 34px;
+        }
+
+        /* 表格：浅色表头（原来 table-dark 黑底很沉） */
+        #myTable { font-size: 12.5px; }
+        #myTable thead.table-dark th, #myTable thead th {
+            background: var(--v16-pri-l) !important; color: var(--v16-pri) !important;
+            border-color: var(--v16-line) !important; font-weight: 700 !important;
+            font-size: 12px !important; padding: 7px 6px !important;
+        }
+        #myTable td { border-color: var(--v16-line) !important; padding: 7px 6px !important; }
+        #myTable tbody tr:hover { background: var(--v16-pri-l) !important; }
+        #myTable .table-empty, #myTable td.text-muted.text-center { color: var(--v16-sub) !important; }
+
+        /* 暗色下别白底透出来 */
+        html[data-theme="dark"] #myTable thead th { background: rgba(91, 140, 247, .16) !important; }
+        /* V1.36：筛选面板里 statusFilterBtn 带 bg-white，暗色下会是一块白，统一收口 */
+        html[data-theme="dark"] #v16FilterBody .bg-white,
+        html[data-theme="dark"] #v16FilterBody .form-control,
+        html[data-theme="dark"] #v16FilterBody .form-select,
+        html[data-theme="dark"] #v16FilterBody .btn {
+            background: #12161c !important; color: #e6ebf2 !important; border-color: #2c3543 !important; }
+
+        /* ===================== V1.9 「我的」页照参考图重排 ===================== */
+        .v16-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 12px; }
+        .v16-stat {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--v16-card); border: 1px solid var(--v16-line);
+            border-radius: 12px; padding: 12px 14px;
+        }
+        .v16-stat .sic { width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto;
+            display: flex; align-items: center; justify-content: center; }
+        .v16-stat .sic svg { width: 19px; height: 19px; }
+        .v16-stat .sic.bad { background: var(--v16-badbg); color: var(--v16-bad); }
+        .v16-stat .sic.ok { background: var(--v16-okbg); color: var(--v16-ok); }
+        .v16-stat .sic.pri { background: var(--v16-pri-l); color: var(--v16-pri); }
+        .v16-stat .sbd { display: flex; flex-direction: column; min-width: 0; }
+        .v16-stat .sbd b { font-size: 20px; font-weight: 700; line-height: 1.15; }
+        .v16-stat .sbd small { font-size: 11.5px; color: var(--v16-sub); }
+        @media (max-width: 430px) {
+            .v16-stat { padding: 10px 8px; gap: 7px; }
+            .v16-stat .sic { width: 30px; height: 30px; border-radius: 8px; }
+            .v16-stat .sic svg { width: 15px; height: 15px; }
+            .v16-stat .sbd b { font-size: 16px; }
+            .v16-stat .sbd small { font-size: 10.5px; }
+        }
+
+        .v16-tabsrow { margin-bottom: 10px; }
+        .v16-tabsrow .scope-tabs { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+        .v16-tabsrow .scope-tabs .nav-link {
+            border: 1px solid var(--v16-line); background: var(--v16-card); color: var(--v16-txt);
+            border-radius: 999px; font-size: 13px; font-weight: 600; padding: 7px 14px;
+            display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+        }
+        .v16-tabsrow .scope-tabs .nav-link.active { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+        .v16-tabsrow .scope-tabs .nav-link .badge { background: var(--v16-graybg); color: var(--v16-sub); font-weight: 700; }
+        .v16-tabsrow .scope-tabs .nav-link.active .badge { background: rgba(255,255,255,.25); color: #fff; }
+
+        /* 筛选条：一行放下关键字 + 筛选 */
+        .v16-filterbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .v16-filterbar .scope-tabs { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; flex-wrap: wrap; }
+
+        /* ===================== V1.59c：统计+筛选合成一块玻璃卡 =====================
+           ⚠️ 类名必须用 my-panel：v16.css:351 已有 .v16-panel（记录卡），且 v16.css 最后加载会全覆盖 */
+        .my-panel {
+            background: var(--v16-glass, rgba(255,255,255,.78)); border: 1px solid var(--v16-glass-bd, var(--v16-line));
+            border-radius: 14px; padding: 12px; margin: 0 0 12px;
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        }
+        .my-panel .v16-stats { margin: 0 0 12px; }
+        .my-panel .v16-stat { background: var(--v16-graybg); border-color: transparent; }
+        .my-panel .v16-filterbar { margin: 0; }
+        .my-panel .scope-tabs { flex: 1 1 100%; margin-bottom: 8px !important; }
+        .my-panel .scope-tabs .nav-link { height: 34px; padding: 0 13px !important; align-items: center; }
+        /* V1.61：搜索栏通栏拉满——漏斗按钮叠在输入框右端，输入框独占整行宽度 */
+        .my-panel .fb-line { display: flex; align-items: center; position: relative;
+            flex: 1 1 100%; width: 100%; min-width: 0; }
+        .my-panel .fb-line .v16-search {
+            flex: 1 1 100%; width: 100%; min-width: 0; height: 36px; margin: 0;
+            padding-right: 84px; box-sizing: border-box;
+        }
+        .my-panel .fb-line .v16-btn {
+            /* 全站 .v16-filterbar #filterToggleBtn 带 ID 会压成 relative ⇒ 必须 !important */
+            position: absolute !important; right: 5px; top: 50%; transform: translateY(-50%);
+            width: auto; height: 28px; padding: 0 8px !important;
+            background: transparent !important; border: 0 !important; box-shadow: none !important;
+            color: var(--v16-sub) !important;
+        }
+        .my-panel .fb-line .v16-btn .ic { width: 17px; height: 17px; }
+        .my-panel .fb-line .v16-btn.on, .my-panel .fb-line .v16-btn.hasfilter { color: var(--v16-pri) !important; }
+
+        /* ===================== V1.60：按用户草图重排 ===================== */
+        /* 「切换账号」轻量文字链（原蓝色高亮按钮降权） */
+        .pick-link { font-size: 13px; color: var(--v16-sub); text-decoration: none;
+            border: 1px solid var(--v16-line); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+        .pick-link:active { background: var(--v16-graybg); }
+
+        /* 统计卡：大数字居中在上、标签在下（弱化图标） */
+        .my-panel .v16-stat { flex-direction: column; text-align: center; gap: 1px; padding: 11px 6px 9px; position: relative; }
+        .my-panel .v16-stat .sic { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 7px; opacity: .85; }
+        .my-panel .v16-stat .sic svg { width: 12px; height: 12px; }
+        .my-panel .v16-stat .sbd { align-items: center; }
+        .my-panel .v16-stat .sbd b { font-size: 24px; line-height: 1.1; }
+        .my-panel .v16-stat .sbd small { font-size: 11.5px; color: var(--v16-sub); }
+        @media (max-width: 430px) {
+            .my-panel .v16-stat .sbd b { font-size: 21px; }
+        }
+
+        /* tab 分段控件平分屏宽 */
+        @media (max-width: 767px) {
+            .my-panel .scope-tabs { flex-wrap: nowrap; }
+            .my-panel .scope-tabs .nav-item { flex: 1 1 0; min-width: 0; }
+            .my-panel .scope-tabs .nav-link { width: 100%; justify-content: center; padding: 0 4px !important;
+                font-size: 12px !important; white-space: nowrap; }
+        }
+
+        /* V1.61：用户要求「不要卡片式，就要原来那样」——V1.60 的手机表格卡片化整段撤销，
+           恢复 V1.16.4 起一直用的横向滚动表格 + 序号/系统名称两列冻结。
+           下方 V1.16.4 的 sticky 规则重新生效，不要再加重置覆盖。 */
+        .my-empty-ico { color: var(--v16-sub); opacity: .7; }
+        .v16-filterbar .scope-tabs .nav-link {
+            border: 1px solid var(--v16-line); background: var(--v16-card); color: var(--v16-txt);
+            border-radius: 999px; font-size: 12.5px; font-weight: 600; padding: 6px 12px;
+            display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+        }
+        .v16-filterbar .scope-tabs .nav-link.active { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+        .v16-filterbar .scope-tabs .nav-link .badge { background: var(--v16-graybg); color: var(--v16-sub); font-weight: 700; }
+        .v16-filterbar .scope-tabs .nav-link.active .badge { background: rgba(255,255,255,.25); color: #fff; }
+        .v16-search {
+            flex: 1; min-width: 140px; font-size: 12.5px; padding: 7px 12px;
+            border: 1px solid var(--v16-input); border-radius: 999px; background: var(--v16-card); color: var(--v16-txt);
+        }
+        .v16-search:focus { outline: none; border-color: var(--v16-pri); }
+
+        /* 表格里的标签 / 图标 */
+        #myTable .badge { border-radius: 6px; font-size: 11px; font-weight: 600; padding: 3px 7px; }
+        #myTable .badge.st-danger { background: var(--v16-bad); color: #fff; }
+        #myTable .badge.st-warn { background: var(--v16-warn); color: #fff; }
+        #myTable .badge.st-closed { background: var(--v16-okbg); color: var(--v16-ok); border: 1px solid var(--v16-ok); }
+        #myTable .badge.st-new { background: var(--v16-graybg); color: var(--v16-sub); }
+        #myTable .role-tag {
+            display: inline-block; border-radius: 6px; font-size: 11px; font-weight: 600;
+            padding: 3px 7px; background: var(--v16-pri-l); color: var(--v16-pri); white-space: nowrap;
+        }
+        #myTable .role-tag.vis { background: var(--v16-graybg); color: var(--v16-sub); }
+        #myTable .syscell { display: flex; align-items: center; gap: 7px; min-width: 150px; }
+        #myTable .sys-ico {
+            width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+            background: var(--v16-pri-l); color: var(--v16-pri);
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        #myTable .sys-ico svg { width: 14px; height: 14px; }
+        #myTable .sysmain { font-weight: 600; color: var(--v16-txt); }
+        #myTable .syssub { font-size: 11px; color: var(--v16-sub); font-weight: 400; }
+
+        /* 责任链：角色块 + 姓名块（照参考图的彩色分组） */
+        .chain-wrap { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chain-g { display: inline-flex; align-items: stretch; border-radius: 7px; overflow: hidden; font-size: 11px; }
+        .chain-g i { font-style: normal; padding: 2px 6px; color: #fff; white-space: nowrap; }
+        .chain-g > span { padding: 2px 7px; background: var(--v16-card); border: 1px solid var(--v16-line);
+            border-left: 0; color: var(--v16-txt); white-space: nowrap; }
+        .chain-g.g1 i { background: #2e7d32; }
+        .chain-g.g2 i { background: #1e88e5; }
+        .chain-g.g3 i { background: #ef6c00; }
+        .chain-g.g4 i { background: #6a1b9a; }
+        .chain-g.g5 i { background: #78909c; }
+        html[data-theme="dark"] .chain-g > span { background: transparent; }
+
+        /* 分页 */
+        .v16-pager { display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; flex-wrap: wrap; padding: 8px 2px 2px; }
+        .v16-pager .pgwrap { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+        .v16-pager .pg {
+            min-width: 28px; height: 28px; padding: 0 7px; cursor: pointer;
+            border: 1px solid var(--v16-line); background: var(--v16-card); color: var(--v16-txt);
+            border-radius: 8px; font-size: 12.5px;
+        }
+        .v16-pager .pg.on { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; font-weight: 600; }
+        .v16-pager .pg.arrow { color: var(--v16-sub); }
+</style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        /* ===== V1.16.4（收尾样式，务必留在最后：本页前半段有同名规则，同优先级后者胜）=====
+           ① 序号 + 系统名称两列**所有屏幕都冻结**（原来只有手机端冻结）
+           ② 修掉"系统名称撑破格子"：#myTable .syscell 的 min-width:150px 塞进窄单元格会溢出，
+              文字被硬切、还随横向滚动"跑"出来，看着像冻结列坏了
+           ③ 手机端把 三个 tab + 搜索框 + 筛选 压成一排 */
+        #myTable th:nth-child(1), #myTable td:nth-child(1) {
+            position: sticky; left: 0; z-index: 2; background: var(--v16-card);
+            -webkit-tap-highlight-color: transparent;
+        }
+        #myTable th:nth-child(2), #myTable td:nth-child(2) {
+            position: sticky; left: var(--c1w, 42px); z-index: 2; background: var(--v16-card);
+            box-shadow: inset -1px 0 0 #dee2e6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #myTable thead th:nth-child(1), #myTable thead th:nth-child(2) { z-index: 7; }
+        #myTable tbody tr:hover td:nth-child(1), #myTable tbody tr:hover td:nth-child(2) { background: #f8f9fa; }
+        html[data-theme="dark"] #myTable tbody tr:hover td:nth-child(1),
+        html[data-theme="dark"] #myTable tbody tr:hover td:nth-child(2) { background: #232b37; }
+        /* 单元格内容可收缩，不再把格子撑破 */
+        #myTable .syscell { min-width: 0; }
+        #myTable .syscell > span:last-child { min-width: 0; }
+
+        @media (max-width: 767.98px) {
+            #myTable th:nth-child(1), #myTable td:nth-child(1) {
+                width: 42px; min-width: 42px; max-width: 42px;
+            }
+            #myTable th:nth-child(2), #myTable td:nth-child(2) {
+                width: 132px; min-width: 132px; max-width: 132px;
+            }
+            #myTable td[data-label="系统名称"] { padding-left: 4px; padding-right: 6px; }
+            #myTable .syscell { gap: 5px; }
+            /* 系统名称改为「允许换行」——长系统名折成两行完整显示，不再硬切 */
+            #myTable td[data-label="系统名称"] a,
+            #myTable td[data-label="系统名称"] > div,
+            #myTable .sysmain, #myTable .syssub {
+                max-width: none; overflow: visible; text-overflow: clip;
+                white-space: normal; word-break: break-all; overflow-wrap: anywhere;
+            }
+            /* V1.59c：tab 一行 + 搜索/漏斗一行（不再挤成一排） */
+            .my-panel { padding: 10px 9px; }
+            .v16-filterbar { flex-wrap: wrap; gap: 6px; }
+            .v16-filterbar .scope-tabs { flex-wrap: nowrap; gap: 4px; flex: 1 1 100%; min-width: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .v16-filterbar .scope-tabs .nav-link {
+                padding: 0 10px !important; height: 32px; font-size: 11.5px !important; gap: 3px; letter-spacing: -.2px;
+                white-space: nowrap; flex: 0 0 auto;
+            }
+            .v16-filterbar .scope-tabs .nav-link .badge {
+                font-size: 10px; padding: 1px 4px; margin-left: 1px !important;
+            }
+            /* V1.61：手机端搜索栏同样通栏拉满，漏斗叠在右端 */
+            .v16-filterbar .fb-line { gap: 0; position: relative; }
+            .v16-filterbar .fb-line .v16-search {
+                flex: 1 1 100%; width: 100%; min-width: 0; height: 34px;
+                padding: 6px 44px 6px 10px; font-size: 12px; box-sizing: border-box;
+            }
+            .v16-filterbar .fb-line .v16-btn {
+                position: absolute !important; right: 5px; top: 50%; transform: translateY(-50%);
+                width: auto; height: 28px; padding: 0 7px !important; font-size: 12px;
+                background: transparent !important; border: 0 !important; box-shadow: none !important;
+                color: var(--v16-sub) !important;
+            }
+            .v16-filterbar .fb-line .v16-btn .ic { width: 16px; height: 16px; }
+            .v16-filterbar .fb-lbl { display: none; }   /* 手机端筛选按钮只留漏斗图标，省地方 */
+        }
+
+        /* ===== V1.30 暗色收尾：表格左侧残留白块 =====
+           真凶：本页前半段手机 media 里 `#myTable tbody tr { background:#fff }`。
+           td 已被 theme.css 染深，但 tr 的白底会从单元格缝隙 / 横向滚动处透出来，
+           表现为数据行最左边一条白。全部按同一深色收口（thead 的深蓝表头不动）。 */
+        html[data-theme="dark"] #myTable tbody,
+        html[data-theme="dark"] #myTable tbody tr,
+        html[data-theme="dark"] #myTable tbody td { background: #1e293b !important; }
+        html[data-theme="dark"] #myTable tbody tr:hover,
+        html[data-theme="dark"] #myTable tbody tr:hover td { background: #232b37 !important; }
+
+        /* ===== V1.61：撤销 V1.60 的「冻结列作废」重置块 =====
+           表格已恢复原样，V1.16.4 的 sticky 冻结列 + 42px/132px 列宽重新生效；
+           V1.30 的暗色表格背景也照旧生效，不能再设 transparent。 */
+        /* 「账号在别处开着」提示块内联写了浅橙底，暗色下同样是一块白 */
+        html[data-theme="dark"] .online-tip { background: rgba(251,191,36,.10) !important;
+            border-color: rgba(251,191,36,.30) !important; color: #fcd34d !important; }
+
+        /* ===== V1.36 我提交的亮点 / 问题：分区成块、操作收成一行，编辑表单默认藏 ===== */
+        .hl-mine { padding: 0; overflow: hidden; }
+        .hl-mine > summary { cursor: pointer; padding: 11px 13px; list-style: none;
+            display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+        .hl-mine > summary::-webkit-details-marker { display: none; }
+        .hl-mine > summary .hl-arw { margin-left: auto; color: var(--v16-sub);
+            font-size: 11px; transition: transform .15s; }
+        .hl-mine[open] > summary .hl-arw { transform: rotate(90deg); }
+        .hl-mine-bd { padding: 11px 12px 3px; border-top: 1px solid var(--v16-line); }
+        .hl-mine-item { padding: 11px 12px; margin-bottom: 9px; border-radius: 12px;
+            background: var(--v16-graybg); }
+        .hl-mine-item:last-child { margin-bottom: 4px; }
+        .hl-reason { margin-top: 7px; padding: 7px 9px; border-radius: 8px;
+            background: var(--v16-badbg); color: var(--v16-bad); font-size: 12px;
+            line-height: 1.6; word-break: break-all; }
+        /* 操作条：所有动作同一行、同一规格，不再有裸露的文字链接 */
+        .hl-acts { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 9px; }
+        .hl-acts form { margin: 0; }
+        .hl-act { display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            height: 31px; padding: 0 11px; border-radius: 8px; cursor: pointer;
+            font-size: 12.5px; font-weight: 600; line-height: 1; white-space: nowrap;
+            background: var(--v16-card); color: var(--v16-txt);
+            border: 1px solid var(--v16-line); transition: background .15s, border-color .15s; }
+        .hl-act svg { width: 14px; height: 14px; flex: 0 0 auto; }
+        .hl-act.pri { color: var(--v16-pri); border-color: var(--v16-pri); }
+        .hl-act.pri:hover, .hl-act.pri.on { background: var(--v16-pri-l); }
+        .hl-act.mut { color: var(--v16-sub); }
+        .hl-act.mut:hover { color: var(--v16-bad); border-color: var(--v16-bad); background: var(--v16-badbg); }
+        .hl-act.ok { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+        .hl-edit-bd { margin-top: 9px; padding: 11px 12px; border-radius: 10px;
+            background: var(--v16-card); border: 1px solid var(--v16-line); }
+        .hl-edit-bd[hidden] { display: none !important; }
+        .hl-mine input[type=text], .hl-mine textarea, .hl-mine input[type=file] {
+            width: 100%; box-sizing: border-box; font-size: 13px; padding: 7px 9px;
+            border: 1px solid var(--v16-input); border-radius: 8px;
+            background: var(--v16-card); color: var(--v16-txt); }
+        .hl-mine textarea { min-height: 62px; resize: vertical; }
+        .hl-mine .hl-lbl { display: block; font-size: 11.5px; color: var(--v16-sub); margin: 7px 0 3px; }
+        /* 原生「选择文件」按钮在暗色下会画成白块，改成 label 触发的自定义按钮 */
+        .hl-file { display: flex; align-items: center; gap: 9px; min-width: 0; }
+        .hl-file input[type=file] { position: absolute; width: 1px; height: 1px;
+            opacity: 0; overflow: hidden; clip: rect(0 0 0 0); padding: 0; border: 0; }
+        .hl-file-btn { display: inline-flex; align-items: center; height: 30px; padding: 0 11px;
+            border-radius: 7px; background: var(--v16-pri-l); color: var(--v16-pri);
+            font-size: 12px; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
+        .hl-file-name { font-size: 11.5px; color: var(--v16-sub);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hl-edit-foot { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+        .hl-edit-foot .hl-act { margin: 0; }
+        html[data-theme="dark"] .hl-mine input[type=text],
+        html[data-theme="dark"] .hl-mine textarea,
+        html[data-theme="dark"] .hl-mine input[type=file] {
+            background: #12161c !important; color: #e6ebf2 !important; border-color: #2c3543 !important; }
+        html[data-theme="dark"] .hl-mine-item { background: rgba(255,255,255,.04) !important; }
+        html[data-theme="dark"] .hl-edit-bd { background: #161b24 !important; }
+        /* 展开态按钮别用半透明变量，暗色下写死不透明深蓝，避免被叠成浅色 */
+        html[data-theme="dark"] .hl-act.pri.on,
+        html[data-theme="dark"] .hl-act.pri:hover { background: #233047 !important; }
+        html[data-theme="dark"] .hl-file-btn { background: #2c3543 !important; color: #e6ebf2 !important; }
+        /* 高级筛选：默认整块收起，由顶部漏斗按钮唤出（V1.36 前底部常驻一条标题栏，和漏斗重复） */
+        .v16-filter.card { display: none; margin-bottom: 10px; }
+        .v16-filter.card.show { display: block; }
+        /* 审批视图强制隐藏，写在 .show 之后才能压住；切回来去掉类即可恢复原状态 */
+        .v16-filter.card.force-hide { display: none; }
+        .v16-filter-tip { font-size: 11.5px; color: var(--v16-sub); margin-bottom: 7px; }
+        .v16-filterbar #filterToggleBtn { position: relative; }
+        .v16-filterbar #filterToggleBtn.on { background: var(--v16-pri-l); border-color: var(--v16-pri); }
+        .v16-filterbar #filterToggleBtn .fdot { display: none; position: absolute; top: 3px; right: 3px;
+            width: 6px; height: 6px; border-radius: 50%; background: var(--v16-bad); }
+        .v16-filterbar #filterToggleBtn.hasfilter .fdot { display: block; }
+
+        /* ===== V1.62：冻结列「序号 / 隐患类别」改实体底色（用户：别透明） =====
+           暗色下原表头是 rgba(255,255,255,.06) / rgba(91,140,247,.16) 半透明，
+           背景光斑会透上来、横向滚动时和后面的字叠在一起 ⇒ 亮暗各给一个不透明实色。
+           数据行原本虽是实体，但与滚动列毫无色差，一并收口成「钉得住的实体块」。 */
+        body.v16 { --my-th-solid: #eff6ff; --my-cell-solid: #fff; --my-hover-solid: #eff6ff; }
+        html[data-theme="dark"] body.v16 {
+            --my-th-solid: #233148; --my-cell-solid: #1b212b; --my-hover-solid: #26324a;
+        }
+        html body.v16 #myTable thead th {
+            background: var(--my-th-solid) !important;
+        }
+        /* 前两列另有一条更高特异性的半透明规则，单独再压一次 */
+        html body.v16 #myTable thead th:nth-child(1),
+        html body.v16 #myTable thead th:nth-child(2) {
+            background: var(--my-th-solid) !important;
+        }
+        html body.v16 #myTable tbody td:nth-child(1),
+        html body.v16 #myTable tbody td:nth-child(2) {
+            background: var(--my-cell-solid) !important;
+        }
+        html body.v16 #myTable tbody tr:hover td:nth-child(1),
+        html body.v16 #myTable tbody tr:hover td:nth-child(2) {
+            background: var(--my-hover-solid) !important;
+        }
+        html body.v16 #myTable th:nth-child(2),
+        html body.v16 #myTable td:nth-child(2) {
+            box-shadow: inset -1px 0 0 var(--v16-line) !important;
+        }
+    </style>
+</head>
+<body class="v16 bg-light">
+<div class="container-fluid py-3 px-4">
+
+    <div class="v16-top">
+        <a class="bk" href="{{ '/safety' if IS_SAFETY else '/boards' }}">&#8249; 返回</a>
+        <h1 class="ttl">我的</h1>
+        <span class="rt"></span>
+    </div>
+
+    {% if need_ident %}
+
+    <div class="v16-card" style="max-width:640px;margin:0 auto">
+        <div class="v16-tit">{{ '换个人看「我的」' if pick else '你好，先认一下你是谁' }}</div>
+        <div class="v16-sm v16-muted" style="margin-top:4px">
+            选一次就记住，只显示和你有关的事。
+        </div>
+
+        <div class="v16-sm" style="margin-top:8px;padding:9px 11px;border-radius:10px;
+                background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;line-height:1.8">
+            <b>当前是「自选身份」，不是平台认证身份。</b><br>
+            你是自己声明的姓名，系统无法验证，所以只能用来看待办、提隐患、处理和你相关的事；
+            用户管理、名单授权、阈值配置等管理功能会被挡住。<br>
+            需要管理权限，请<b>从船海智云点应用进入</b>，那时系统自动确认身份。<a href="/sso/entry">看怎么进</a>
+        </div>
+        {% if sso_require %}
+        <div class="v16-sm" style="margin-top:8px;padding:9px 11px;border-radius:10px;
+                background:#fef2f2;border:1px solid #fecaca;color:#991b1b;line-height:1.8">
+            本系统已启用<b>强制单点登录</b>，自选身份入口即将关闭。
+            请回船海智云从应用进入。
+        </div>
+        {% endif %}
+        <div class="v16-xs v16-muted" style="margin-top:6px">
+            从船海智云点进来却没认出你？<a href="/sso/log">点这里看原因</a>
+        </div>
+        {% if id_lock %}
+
+        <div class="v16-sm" style="margin-top:10px;padding:11px 13px;border-radius:10px;
+                background:#fef2f2;border:1px solid #fecaca;color:#991b1b;line-height:1.85">
+            <b>本系统已锁定身份。</b><br>
+            你不能自己声明是谁，也不能在这里换成别人 ——
+            你的身份由<b>船海智云</b>自动确认，进来就是本人。<br>
+            如果你是要<b>代别人操作</b>（帮同事填隐患、帮同事闭环），
+            请提交换人申请，管理员审批通过后才生效；
+            <b>没批之前你的身份不变</b>。
+        </div>
+        <div class="v16-btnrow" style="margin-top:11px">
+            <a class="v16-btn" href="/sso/entry">回船海智云进入</a>
+            <a class="v16-btn gray" href="/my/idreq?biz={{ 'safety' if IS_SAFETY else 'debug' }}">我要代操作 → 提申请</a>
+        </div>
+        <div class="v16-btnrow" style="margin-top:9px">
+            <a class="v16-btn gray" href="{{ '/safety' if IS_SAFETY else '/boards' }}">先不看</a>
+        </div>
+        {% else %}
+        <form method="post" action="/my/whoami" style="margin-top:10px">
+            <input type="hidden" name="biz" value="{{ 'safety' if IS_SAFETY else 'debug' }}">
+            <input type="hidden" name="phone" id="whoPhone" value="">
+
+            <input type="hidden" name="tok" id="whoTok" value="">
+            <input type="text" id="whoKw" placeholder="搜姓名 / 部门 / 手机号" autocomplete="off"
+                   oninput="whoRender()" style="width:100%">
+            <div id="whoList" class="who-list"></div>
+            <div class="v16-btnrow" style="margin-top:10px">
+                <button class="v16-btn" type="submit" id="whoOk" disabled>就是我，进入「我的」</button>
+                <a class="v16-btn gray" href="{{ '/safety' if IS_SAFETY else '/boards' }}">先不看</a>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+    {% if not id_lock %}
+
+    <script>
+        var WHO = {{ (staff_list or [])|tojson }};
+        var whoSel = '';
+        function whoRender() {
+            var kw = ((document.getElementById('whoKw') || {}).value || '').trim().toLowerCase();
+            var box = document.getElementById('whoList');
+            if (!box) return;
+            var html = '', n = 0;
+            for (var i = 0; i < WHO.length && n < 300; i++) {
+                var p = WHO[i] || {};
+                var nm = p['姓名'] || '', ph = p['电话'] || '';
+                // V1.16.22：tok = 选中标识。已认到人时是真手机号，未认到人时是随机令牌
+                //（真号只在服务端 session 里，页面源码套不出来）
+                var rl = p['tok'] || ph;
+                var dp = [p['一级部门'], p['二级部门'], p['作业区']].filter(Boolean).join('/') || (p['ds'] || '');
+                var t = (nm + ' ' + ph + ' ' + dp).toLowerCase();
+                if (kw && t.indexOf(kw) < 0) continue;
+                n++;
+                html += '<div class="who-row' + (rl === whoSel ? ' on' : '') + '" data-p="' + rl + '"'
+                      + ' onclick="whoPick(this)"><b>' + nm + '</b><span class="ds">' + dp
+                      + (ph ? ' · ' + ph : '') + '</span></div>';
+            }
+            box.innerHTML = n ? html : '<div class="v16-empty">没找到，换个关键词试试</div>';
+        }
+        function whoPick(el) {
+            whoSel = (el && el.getAttribute('data-p')) || '';
+            var inp = document.getElementById('whoPhone');
+            if (inp) inp.value = whoSel;
+            var tk = document.getElementById('whoTok');
+            if (tk) tk.value = whoSel;
+            var ok = document.getElementById('whoOk');
+            if (ok) ok.disabled = !whoSel;
+            whoRender();
+        }
+        whoRender();
+    </script>
+    {% endif %}
+    {% else %}
+
+    <div class="card mb-3 user-hero">
+        <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="user-avatar-wrap">
+                        <div class="user-avatar" id="heroAvatar">{{ user_name[:1] if user_name else '用' }}</div>
+
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="fw-bold fs-4" id="heroName">{{ user_name or '—' }}</span>
+                            {% if role_label %}<span class="badge-soft"><span class="dot"></span>{{ role_label }}</span>{% endif %}
+                            {% if sso %}<span class="badge-soft sso"><span class="dot"></span>船海智云已识别</span>{% endif %}
+                        </div>
+                        <div class="text-muted small mt-1">{{ user_phone or '' }}</div>
+                    </div>
+                </div>
+<div class="user-actions d-flex gap-2 flex-wrap">
+                    {# V1.30：「切换看板」和左上角返回键作用重复，按用户要求删除 #}
+                    {% if no_login %}
+
+                    {% if id_lock %}
+                    <a href="/my/idreq?biz={{ 'safety' if IS_SAFETY else 'debug' }}" class="btn btn-sm btn-brand">代他人操作 → 申请换人</a>
+                    {% else %}
+                    <a href="/my?biz={{ 'safety' if IS_SAFETY else 'debug' }}&pick=1" class="pick-link">切换账号 ›</a>
+                    {% endif %}
+                    {% else %}
+                    <button class="btn btn-sm btn-outline-primary" onclick="showPwdModal()">修改密码</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="doLogout()">退出登录</button>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    {% if online_elsewhere %}
+    <div class="v16-sm online-tip" style="max-width:640px;margin:0 auto 12px;padding:11px 13px;border-radius:10px;
+            background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;line-height:1.85">
+        <b>这个账号在别处已经开着：</b>{{ online_elsewhere }}{% if online_elsewhere_at %}（{{ online_elsewhere_at }} 起）{% endif %}。<br>
+        一个账号同一时间只在一个地方能用。你在这台设备继续用的话，别处那一端会被顶掉。
+        <a href="/online">看在线情况 / 顶替</a>
+    </div>
+    {% endif %}
+
+    {# V1.59c：统计块 + 筛选行合并成一块玻璃卡（用户：别分成好几块）；tab 一行、搜索+漏斗一行，不再挤成一排 #}
+    <div class="my-panel">
+    <div class="v16-stats">
+        <div class="v16-stat">
+            <span class="sic bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.6v4.9M12 16.1v.3"/></svg></span>
+            <span class="sbd"><b id="statOpen">0</b><small>未闭环</small></span>
+        </div>
+        <div class="v16-stat">
+            <span class="sic ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.4 12.3l2.4 2.4 4.8-5"/></svg></span>
+            <span class="sbd"><b id="statClosed">0</b><small>已闭环</small></span>
+        </div>
+        <div class="v16-stat">
+            <span class="sic pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M4 12h16M4 17.5h10"/></svg></span>
+            <span class="sbd"><b id="statTotal">0</b><small>当前显示</small></span>
+        </div>
+    </div>
+
+    {# V1.27：tab 栏放在内容之前 —— 点「待我审批」后结果出现在 tab 下方，不用往上翻 #}
+    <div class="v16-filterbar">
+    <ul class="nav scope-tabs" id="scopeTabs">
+        <li class="nav-item">
+            <button class="nav-link" data-scope="mine" onclick="setScope('mine')">我提出的<span class="ms-1 badge text-bg-secondary" id="cntMine">0</span></button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-scope="resp" onclick="setScope('resp')">我是责任人<span class="ms-1 badge text-bg-secondary" id="cntResp">0</span></button>
+        </li>
+
+        {% if IS_SAFETY %}
+        <li class="nav-item">
+            <button class="nav-link" data-scope="appr" onclick="setScope('appr')">待我审批<span class="ms-1 badge text-bg-secondary" id="cntAppr">{{ (approvals|default([], true)|length) + (hl_review|default([], true)|length) }}</span></button>
+        </li>
+        {% endif %}
+        {% if global_view %}
+        <li class="nav-item">
+            <button class="nav-link" data-scope="all" onclick="setScope('all')">全部手尾<span class="ms-1 badge text-bg-danger" id="cntAll">{{ rows|length }}</span></button>
+        </li>
+        {% endif %}
+    </ul>
+
+    <div class="fb-line">
+    <input type="text" class="v16-search" id="filterKw" placeholder="搜索描述 / 人员 / 看板"
+           autocomplete="off" oninput="updateTableFilter()">
+    <button type="button" class="v16-btn sec sm auto" id="filterToggleBtn" onclick="v16ToggleFilter()" title="筛选" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.6 5.6h16.8l-6.6 7.5v5.2l-3.6 1.9v-7.1z"/></svg><span class="fb-lbl">筛选</span><i class="fdot"></i></button>
+    </div>
+    </div>
+    </div>
+
+    {# V1.36：高级筛选合并进上面的漏斗按钮 —— 点漏斗才展开，默认完全不显示。
+       原先这里底部常驻一条「▽ 筛选 全部记录」，和漏斗是同一功能的两个开关，看着莫名其妙。 #}
+    <div class="card v16-filter" id="v16FilterCard">
+        <div class="card-body py-2">
+            <div class="v16-filter-tip">按条件筛选下面的记录</div>
+            <div id="v16FilterBody">
+            <div class="row g-2 align-items-end">
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-bold mb-1">状态筛选</label>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center bg-white" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" id="statusFilterBtn">
+                            <span id="statusFilterBtnText" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">全部状态</span>
+                        </button>
+                        <div class="dropdown-menu p-3 shadow" style="width: 100%; max-height: 300px; overflow-y: auto;">
+                            <div class="form-check mb-2 border-bottom pb-2">
+                                <input class="form-check-input" type="checkbox" id="selectAllStatus" checked onchange="toggleAllStatus(this)">
+                                <label class="form-check-label fw-bold" for="selectAllStatus">全选</label>
+                            </div>
+                            <div id="statusCheckboxList"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label fw-bold mb-1">看板筛选</label>
+                    <select class="form-select" id="filterShip" onchange="updateTableFilter()">
+                        <option value="">全部看板</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label fw-bold mb-1">系统名称</label>
+                    <input type="text" class="form-control" id="filterSys" placeholder="输入关键字..." autocomplete="off" oninput="updateTableFilter()">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <label class="form-label fw-bold mb-1 d-none d-md-block">&nbsp;</label>
+                    <label class="btn btn-outline-danger text-start fw-bold" style="margin-bottom:0;">
+                        <input type="checkbox" id="onlyOverdue" onchange="updateTableFilter()" style="margin-right:4px;vertical-align:-1px;">仅看超时{% if not IS_SAFETY %}(＞{{ l2 }}h){% endif %}
+                    </label>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    {# V1.36：每条记录成块、操作统一一行按钮，编辑表单默认收起。
+       有驳回 / 已撤回时整块默认展开；撤回只改状态不删记录。这里列的是「提交过的记录」，不是提交表单。 #}
+    {% if highlights %}
+    <details class="v16-card hl-mine" id="hlMineBox" {% if hl_todo %}open{% endif %}>
+        <summary>
+            <span class="v16-tit">我提交的亮点 / 问题</span>
+            <span class="v16-tag t-info">{{ highlights|length }} 条</span>
+            {% if hl_todo %}<span class="v16-tag t-bad">{{ hl_todo }} 条待处理</span>{% endif %}
+            <span class="hl-arw">&#9654;</span>
+        </summary>
+        <div class="hl-mine-bd">
+        {% for h in highlights %}
+        <div class="hl-mine-item">
+            <div class="v16-spread" style="align-items:flex-start;gap:8px">
+                <span class="v16-tit" style="flex:1;min-width:0;word-break:break-all">{{ h.title or '（无标题）' }}</span>
+                {% if h.status == 'approved' %}<span class="v16-tag t-ok">已通过</span>
+                {% elif h.status == 'pending' %}<span class="v16-tag t-warn">待审核</span>
+                {% elif h.status == 'rejected' %}<span class="v16-tag t-bad">已驳回</span>
+                {% elif h.status == 'withdrawn' %}<span class="v16-tag t-gray">已撤回</span>
+                {% else %}<span class="v16-tag t-gray">{{ h.status }}</span>{% endif %}
+            </div>
+            {% if h.descr %}<div class="v16-sm v16-muted" style="margin-top:4px;line-height:1.6;word-break:break-all">{{ h.descr }}</div>{% endif %}
+            <div class="v16-xs v16-muted" style="margin-top:5px;line-height:1.7">
+                {{ h.ship_name or '—' }} · {{ '亮点' if h.kind == 'highlight' else '问题' }} · {{ h.created_at or '' }}
+                {%- if h.reviewer %} · 审核：{{ h.reviewer }}{% if h.review_time %}（{{ h.review_time }}）{% endif %}{% endif %}
+            </div>
+            {% if h.review_note %}<div class="hl-reason">驳回理由：{{ h.review_note }}</div>{% endif %}
+            {% if h.photo_path %}<a href="/uploads/{{ h.photo_path }}" target="_blank" class="v16-xs v16-muted" style="display:inline-block;margin-top:6px">查看原照片</a>{% endif %}
+
+            <div class="hl-acts">
+                {% if h.status in ['rejected', 'withdrawn'] %}
+                <button type="button" class="hl-act pri" id="hlEditBtn{{ h.id }}" aria-expanded="false"
+                        onclick="hlToggleEdit({{ h.id }})">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>修改后重提
+                </button>
+                {% endif %}
+                {% if h.status in ['pending', 'rejected'] %}
+                <form method="POST" action="/hl/{{ h.id }}/withdraw"
+                      onsubmit="return confirm('确定撤回这条吗？撤回后不再进入审批，你仍可以在这里改了重新提交。');">
+                    <button class="hl-act mut" type="submit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h11a5 5 0 0 1 0 10h-3"/><path d="M7 4L3 8l4 4"/></svg>撤回
+                    </button>
+                </form>
+                {% endif %}
+                {% if h.status == 'approved' %}
+                <span class="v16-xs v16-muted">已在展示墙显示，无需操作</span>
+                {% endif %}
+            </div>
+
+            {% if h.status in ['rejected', 'withdrawn'] %}
+            <div class="hl-edit-bd" id="hlEdit{{ h.id }}" hidden>
+                <form method="POST" action="/hl/{{ h.id }}/resubmit" enctype="multipart/form-data">
+                    <label class="hl-lbl">标题</label>
+                    <input type="text" name="title" maxlength="200" value="{{ h.title|e }}">
+                    <label class="hl-lbl">说明</label>
+                    <textarea name="descr">{{ h.descr|e }}</textarea>
+                    <label class="hl-lbl">换照片（不传就保留原照片）</label>
+                    <div class="hl-file">
+                        <input type="file" name="photo" id="hlPhoto{{ h.id }}" accept="image/*"
+                               onchange="hlFilePicked({{ h.id }})">
+                        <label class="hl-file-btn" for="hlPhoto{{ h.id }}">选择文件</label>
+                        <span class="hl-file-name" id="hlPhotoName{{ h.id }}">未选择任何文件</span>
+                    </div>
+                    <div class="v16-xs v16-muted" style="margin:6px 0 0;line-height:1.6">
+                        提交后回到「待审核」，需审批人重新审核；原来的审核痕迹会清掉。
+                    </div>
+                    <div class="hl-edit-foot">
+                        <button class="hl-act ok" type="submit">保存并重新提交</button>
+                        <button class="hl-act mut" type="button" onclick="hlToggleEdit({{ h.id }}, true)">取消</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+
+    {# V1.27：两类审批内容统一收进「待我审批」视图。容器恒定渲染，
+       否则没有待审数据时点 tab 会把列表/筛选/连 tab 自己全藏掉 ⇒ 整页空白且切不回来 #}
+    {% if IS_SAFETY %}
+    <div id="myApprView" style="display:none">
+    {% if approvals %}
+    <div class="v16-card" id="myApprCard">
+        <div class="v16-spread" style="align-items:center">
+            <span class="v16-tit">等我审批</span>
+            <span class="v16-tag t-warn">{{ approvals|length }} 条</span>
+        </div>
+        {% for a in approvals %}
+        <a class="appr-row" href="/detail/{{ a.id }}{{ '?biz=safety' if IS_SAFETY else '' }}">
+            <span class="appr-main">
+                <span class="appr-nm">{{ a.desc }}</span>
+                <span class="appr-ds">{{ a.ship_name }}{% if a.sys_name %} · {{ a.sys_name }}{% endif %} · 审批人 {{ a.appr_count }} 人 · {{ a.submit_time }}</span>
+            </span>
+            <svg class="appr-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# V1.20.1：亮点提交表单已挪回「亮点展示」页（底部「发起亮点」），不再放「我的」 #}
+
+    {% if hl_review %}
+    <div class="v16-card" id="myHlReviewCard">
+        <div class="v16-spread" style="align-items:center">
+            <span class="v16-tit">待我审核的亮点 / 问题</span>
+            <span class="v16-tag t-warn">{{ hl_review|length }} 条</span>
+        </div>
+        {% for h in hl_review %}
+        <div class="v16-card" style="border:1px solid var(--v16-line);margin-top:8px;border-radius:10px;box-shadow:none;background:var(--v16-bg,#f8fafc)">
+            <div class="v16-spread">
+                <span class="v16-tag {{ 't-ok' if h.kind == 'highlight' else 't-warn' }}">{{ '亮点' if h.kind == 'highlight' else '问题' }}</span>
+                <span class="v16-xs v16-muted">{{ h.created_at or '' }}</span>
+            </div>
+            <div class="v16-tit" style="margin-top:5px">{{ h.title }}</div>
+            {% if h.descr %}<div class="v16-sm v16-muted" style="margin-top:3px;line-height:1.6">{{ h.descr }}</div>{% endif %}
+            <div class="v16-xs v16-muted" style="margin-top:5px">
+                {{ h.ship_name or '' }} · 提交人：{{ h.submitter or '—' }}
+                {%- if h.appr_list %} · 审批人：{% for p in h.appr_list %}{{ p.name }}{% if not loop.last %}、{% endif %}{% endfor %}{% endif %}
+            </div>
+            {% if h.photo_path %}
+            <a href="/uploads/{{ h.photo_path }}" target="_blank">
+                <img src="/photo/{{ h.photo_path }}?w=480" style="max-width:100%;max-height:150px;border-radius:8px;margin-top:7px">
+            </a>
+            {% endif %}
+            <form method="POST" action="/hl/review" style="margin-top:8px">
+                <input type="hidden" name="hid" value="{{ h.id }}">
+                <input type="hidden" name="ship_id" value="{{ h.ship_id }}">
+                <input type="hidden" name="back" value="/my?biz={{ 'safety' if IS_SAFETY else 'debug' }}">
+                <div class="v16-row">
+                    <input type="text" name="reward" placeholder="奖励金额" style="flex:1">
+                    <input type="text" name="punish" placeholder="罚款金额" style="flex:1">
+                </div>
+                <input type="text" name="note" placeholder="评语（可空）" style="margin-top:6px">
+                <div class="v16-btnrow" style="margin-top:8px">
+                    <button class="v16-btn danger" name="action" value="reject" type="submit">驳回</button>
+                    <button class="v16-btn" name="action" value="approve" type="submit">通过</button>
+                </div>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {# V1.27：没有任何待办时给明确空状态，别让 tab 点开像"页面坏了" #}
+    {% if not approvals and not hl_review %}
+    <div class="v16-card" id="myApprEmpty">
+        <div class="v16-empty" style="padding:30px 14px">
+            <svg viewBox="0 0 24 24" style="width:38px;height:38px;stroke:var(--v16-sub);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.4l2.4 2.4 4.7-5"/></svg>
+            <div class="v16-tit" style="margin-top:10px">暂无待你审批的内容</div>
+            <div class="v16-sm v16-muted" style="margin-top:6px;line-height:1.9">
+                违章处罚审批、亮点 / 问题审核<br>
+                需要你处理时，会集中显示在这里。
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    </div><!-- /#myApprView -->
+    {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body table-responsive py-2">
+            <table class="table table-bordered table-hover align-middle mb-1" id="myTable">
+                <thead class="table-dark text-center">
+                    <tr>
+                        <th>序号</th>
+                        <th>系统名称</th>
+                        <th>当前状态</th>
+                        <th>我的角色</th>
+                        <th>责任链</th>
+                        <th>问题描述</th>
+                        <th>发起时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rows %}
+                    <tr data-ismine="{{ 1 if r.is_mine else 0 }}"
+                        data-isresp="{{ 1 if r.is_resp else 0 }}"
+                        data-ship="{{ r.ship_name|e }}"
+                        data-system="{{ r.sys_name|e }}"
+                        data-desc="{{ r.desc|e }}"
+                        data-chain="{{ r.chain_summary|e }}"
+                        data-status="{{ r.display_status }}"
+                        data-closed="{{ '1' if r.is_closed else '0' }}">
+                        <td class="text-center" data-label="序号">{{ loop.index }}</td>
+                        <td data-label="系统名称">
+                            <div class="syscell">
+                                <span class="sys-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/></svg></span>
+                                <span>
+                                    <a href="/detail/{{ r.id }}" class="text-decoration-none sysmain" title="{{ r.sys_name }}">{{ r.sys_name }}</a>
+                                    <span class="syssub d-block">{{ r.ship_name }}</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td data-label="当前状态">
+                            {% if r.is_closed %}
+                                <span class="badge st-closed">已闭环</span>
+                                <div class="text-muted small" style="font-size:11px;">{{ r.close_time }}</div>
+                            {% elif r.display_status == '超时' %}
+
+                                <span class="badge st-danger">超时</span>
+                            {% elif r.display_status == '未超时' %}
+                                <span class="badge st-new">未超时</span>
+                            {% elif '大于' in r.display_status %}
+                                <span class="badge st-danger">{{ r.display_status }}</span>
+                            {% elif '-' in r.display_status %}
+                                <span class="badge st-warn">{{ r.display_status }}</span>
+                            {% else %}
+                                <span class="badge st-new">{{ r.display_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="我的角色">
+                            {% if r.is_mine %}<span class="role-tag">我发起的</span>{% endif %}
+                            {% if r.is_resp %}<span class="role-tag">我是责任人</span>{% endif %}
+                            {% if not r.is_mine and not r.is_resp %}<span class="role-tag vis">可见</span>{% endif %}
+                        </td>
+                        <td data-label="责任链" class="chain-cell">
+
+                            {% if r.chain_groups %}
+                            <div class="chain-cell-in">
+                                {% for g in r.chain_groups %}<div class="chain-group"><span class="chain-role">{{ g.tag }}</span>{% for n in g.names.split('·') %}<span class="chain-name">{{ n }}</span>{% endfor %}</div>{% endfor %}
+                            </div>
+                            {% else %}<span class="text-muted">—</span>{% endif %}
+                        </td>
+                        <td data-label="问题描述" class="desc-text">{{ r.desc }}</td>
+                        <td data-label="发起时间" class="text-muted" style="font-size:12px;">{{ r.submit_time }}</td>
+                        <td data-label="操作">
+                            <a href="/detail/{{ r.id }}" class="btn btn-outline-primary btn-sm"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/></svg> 进度</a>
+                            {% if not r.is_closed and r.urge_cnt > 0 %}
+                            <button class="btn btn-outline-danger btn-sm" onclick="urge({{ r.id }}, {{ r.urge_cnt }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.4 2.6H4.6L6 16z"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg> 催办</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr id="emptyRow"><td colspan="8" class="text-center text-muted py-4">
+                        <svg class="my-empty-ico" width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2 12 3l8.5 4.2v9.6L12 21l-8.5-4.2z"/><path d="M3.5 7.2 12 11.4l8.5-4.2M12 11.4V21"/><path d="M7.7 5.1l8.6 4.3"/></svg>
+                        <div style="margin-top:8px;font-size:14px;font-weight:600;">暂无相关手尾记录</div>
+                        <div class="v16-xs" style="margin-top:3px">切换上方标签或清空筛选后再试试</div>
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="v16-pager">
+                <div class="v16-xs v16-muted">共 <span id="visibleCount">0</span> 条</div>
+                <div class="pgwrap" id="v16Pager"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal fade" id="pwdModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header brand-head">
+                <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M11.2 11.8 20.5 2.5M16 7.5l3 3L21.5 8l-3-3"/></svg>修改密码</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">原密码</label>
+                    <input type="password" class="form-control" id="pwdOld" autocomplete="current-password">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">新密码（至少 8 位，含字母和数字）</label>
+                    <input type="password" class="form-control" id="pwdNew" autocomplete="new-password">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">确认新密码</label>
+                    <input type="password" class="form-control" id="pwdNew2" autocomplete="new-password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-brand" onclick="doChangePassword()">确认修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="uiConfirmBox" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;max-width:340px;width:100%;padding:20px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);">
+        <div id="uiConfirmMsg" style="font-size:15px;line-height:1.6;color:#212529;white-space:pre-wrap;word-break:break-all;"></div>
+        <div style="display:flex;gap:10px;margin-top:18px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="_uiConfirmAnswer(false)">取消</button>
+            <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="_uiConfirmAnswer(true)">确定催办</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+    // ============ 登录区（本页仅登录可见，静态渲染） ============
+    const USER_NAME = '{{ user_name|e }}';
+    const USER_ROLE = '{{ role }}';
+    const ROLE_LABEL = '{{ role_label }}';
+    const GLOBAL_VIEW = {{ 'true' if global_view else 'false' }};
+    // V1.4.5 线性图标库（stroke=currentColor，随文字颜色，避免 emoji 花哨）
+    // V1.8：顶部那个孤零零的「看板」按钮删掉 —— 和 hero 里的「切换看板」重复，
+    // 而且安全档下它指向的是调试看板。（用户反馈顶部太乱）
+    var _la = document.getElementById('loginArea');
+    if (_la) _la.innerHTML = '';
+
+    // ============ 作用域 Tab ============
+    let currentScope = GLOBAL_VIEW ? 'all' : 'mine';
+
+    function setScope(scope) {
+        currentScope = scope;
+        document.querySelectorAll('#scopeTabs .nav-link').forEach(function (b) {
+            b.classList.toggle('active', b.getAttribute('data-scope') === scope);
+        });
+        // V1.27：「待我审批」是独立视图 —— 只隐藏列表 / 详细筛选 / 统计。
+        //   🔴 tab 栏必须留着（V1.16 连它一起藏，切过去就回不来）；
+        //   审批视图恒定渲染（含空状态卡），没有待办也不会整页空白。
+        var _appr = (scope === 'appr');
+        var _tb = document.getElementById('myTable');
+        var _listCard = _tb ? _tb.closest('.card') : null;
+        if (_listCard) _listCard.style.display = _appr ? 'none' : '';
+        var _fcard = document.getElementById('v16FilterCard');
+        // V1.36：面板显隐由 .show 类控制，审批视图只是临时压住，切回来恢复原状态
+        if (_fcard) _fcard.classList.toggle('force-hide', _appr);
+        var _stats = document.querySelector('.v16-stats');
+        if (_stats) _stats.style.display = _appr ? 'none' : '';
+        // 搜索框 / 筛选按钮只对记录列表有用，审批视图下收起；tab 本身不藏
+        var _kw = document.getElementById('filterKw');
+        if (_kw) _kw.style.display = _appr ? 'none' : '';
+        var _fbtn = document.querySelector('.v16-filterbar .v16-btn');
+        if (_fbtn) _fbtn.style.display = _appr ? 'none' : '';
+        var _av = document.getElementById('myApprView');
+        if (_av) _av.style.display = _appr ? '' : 'none';
+        // V1.35：审批视图下把「我提交的亮点」也收起，避免和待审内容混在一起
+        var _hlb = document.getElementById('hlMineBox');
+        if (_hlb) _hlb.style.display = _appr ? 'none' : '';
+        if (!_appr) updateTableFilter();
+    }
+
+    // ============ 状态筛选（选项按实际数据动态生成） ============
+    function collectStatuses() {
+        const set = {};
+        document.querySelectorAll('#myTable tbody tr[data-status]').forEach(function (row) {
+            set[row.getAttribute('data-status')] = true;
+        });
+        return Object.keys(set).sort();
+    }
+
+    function renderStatusOptions() {
+        const list = document.getElementById('statusCheckboxList');
+        list.innerHTML = '';
+        const statuses = collectStatuses();
+        if (!statuses.length) return;
+        statuses.forEach(function (s) {
+            const div = document.createElement('div');
+            div.className = 'form-check status-item-check mb-1';
+            div.innerHTML = '<input class="form-check-input status-checkbox" type="checkbox" value="' +
+                s.replace(/"/g, '&quot;') + '" checked onchange="updateTableFilter()">' +
+                '<label class="form-check-label">' + s + '</label>';
+            list.appendChild(div);
+        });
+    }
+
+    function refreshStatusBtnText() {
+        const boxes = Array.from(document.querySelectorAll('.status-checkbox'));
+        const checked = boxes.filter(function (cb) { return cb.checked; });
+        const span = document.getElementById('statusFilterBtnText');
+        const selectAll = document.getElementById('selectAllStatus');
+        if (selectAll) selectAll.checked = boxes.length > 0 && checked.length === boxes.length;
+        if (!span) return;
+        if (!boxes.length) { span.textContent = '全部状态'; span.title = '全部状态'; }
+        else if (checked.length === boxes.length) { span.textContent = '全部状态'; span.title = '全部状态'; }
+        else if (checked.length === 0) { span.textContent = '未选任何状态'; span.title = '未选任何状态'; }
+        else if (checked.length === 1) { span.textContent = checked[0].value; span.title = checked[0].value; }
+        else { span.textContent = '已选 ' + checked.length + ' 项'; span.title = checked.map(function (cb) { return cb.value; }).join('、'); }
+    }
+
+    function toggleAllStatus(master) {
+        document.querySelectorAll('.status-checkbox').forEach(function (cb) { cb.checked = master.checked; });
+        updateTableFilter();
+    }
+
+    // ============ 看板下拉选项 ============
+    function renderShipOptions() {
+        const sel = document.getElementById('filterShip');
+        const set = {};
+        document.querySelectorAll('#myTable tbody tr[data-ship]').forEach(function (row) {
+            const v = row.getAttribute('data-ship') || '';
+            if (v && !set[v]) { set[v] = true; const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); }
+        });
+    }
+
+    // ============ 表格筛选 ============
+    function updateTableFilter() {
+        refreshStatusBtnText();
+        const checkedStatuses = Array.from(document.querySelectorAll('.status-checkbox:checked')).map(function (cb) { return cb.value; });
+        const shipQuery = document.getElementById('filterShip').value.trim().toLowerCase();
+        const sysQuery = document.getElementById('filterSys').value.trim().toLowerCase();
+        const kwQuery = document.getElementById('filterKw').value.trim().toLowerCase();
+        const onlyOverdue = document.getElementById('onlyOverdue').checked;
+
+        let visible = 0, closed = 0, open = 0;
+        let mineCnt = 0, respCnt = 0;
+
+        document.querySelectorAll('#myTable tbody tr[data-ismine]').forEach(function (row) {
+            const isMine = row.getAttribute('data-ismine') === '1';
+            const isResp = row.getAttribute('data-isresp') === '1';
+            if (isMine) mineCnt++;
+            if (isResp) respCnt++;
+
+            let match = true;
+            if (currentScope === 'mine' && !isMine) match = false;
+            if (currentScope === 'resp' && !isResp) match = false;
+            if (!match) { row.style.display = 'none'; return; }
+
+            if (checkedStatuses.length && !checkedStatuses.includes(row.getAttribute('data-status'))) match = false;
+            if (match && shipQuery) {
+                const ship = (row.getAttribute('data-ship') || '').toLowerCase();
+                if (!ship.includes(shipQuery)) match = false;
+            }
+            if (match && sysQuery) {
+                const sys = (row.getAttribute('data-system') || '').toLowerCase();
+                if (!sys.includes(sysQuery)) match = false;
+            }
+            if (match && kwQuery) {
+                const hay = ((row.getAttribute('data-desc') || '') + '|' +
+                             (row.getAttribute('data-chain') || '') + '|' +
+                             (row.getAttribute('data-ship') || '') + '|' +
+                             (row.getAttribute('data-system') || '')).toLowerCase();
+                if (!hay.includes(kwQuery)) match = false;
+            }
+            if (match && onlyOverdue) {
+                        // V1.16.6：调试档按「大于l2小时」算超时；安全档状态本身就是 超时/未超时
+                const _st = (row.getAttribute('data-status') || '');
+                if (!(_st.includes('大于') || _st === '超时')) match = false;
+            }
+            if (match) {
+                row.style.display = '';
+                visible++;
+                if (row.getAttribute('data-closed') === '1') closed++;
+                else open++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        document.getElementById('visibleCount').textContent = visible;
+        document.getElementById('statTotal').textContent = visible;
+        document.getElementById('statClosed').textContent = closed;
+        document.getElementById('statOpen').textContent = open;
+        document.getElementById('cntMine').textContent = mineCnt;
+        document.getElementById('cntResp').textContent = respCnt;
+        const cntAllEl = document.getElementById('cntAll');
+        if (cntAllEl) cntAllEl.textContent = document.querySelectorAll('#myTable tbody tr[data-ismine]').length;
+    }
+
+    // ============ 退出登录 ============
+    async function doLogout() {
+        try { await fetch('/logout', { method: 'POST' }); } catch (e) {}
+        // 🔴 V1.16.36（用户报障「点进去直接跳到船舶完整性看板而不是总界面」）：
+        //   退出登录原来回 /boards（船舶完整性看板），现在回总界面 /。
+        window.location.href = '/';
+    }
+
+    // ============ 修改密码 ============
+    function showPwdModal() {
+        ['pwdOld', 'pwdNew', 'pwdNew2'].forEach(function (id) { document.getElementById(id).value = ''; });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('pwdModal')).show();
+    }
+
+    async function doChangePassword() {
+        const oldPwd = document.getElementById('pwdOld').value;
+        const newPwd = document.getElementById('pwdNew').value;
+        const newPwd2 = document.getElementById('pwdNew2').value;
+        if (!oldPwd || !newPwd) { showToast('请填写原密码和新密码', 'warn'); return; }
+        if (newPwd.length < 8 || !(/[a-zA-Z]/.test(newPwd) && /\d/.test(newPwd))) {
+            showToast('新密码至少 8 位，且必须同时包含字母和数字', 'warn'); return;
+        }
+        if (newPwd !== newPwd2) { showToast('两次输入的新密码不一致', 'warn'); return; }
+        if (newPwd === oldPwd) { showToast('新密码不能与原密码相同', 'warn'); return; }
+        if (!(await uiConfirm('确认修改密码吗？\n修改后下次登录请使用新密码。'))) return;
+        try {
+            const resp = await fetch('/change_password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('pwdModal')).hide();
+                showToast(data.msg || '密码修改成功', 'ok');
+            } else {
+                showToast(data.msg || '修改失败', 'err');
+            }
+        } catch (e) {
+            showToast('请求失败：' + e.message, 'err');
+        }
+    }
+
+    // ============ 自定义确认 ============
+    let _uiConfirmResolve = null;
+    function uiConfirm(msg) {
+        return new Promise(function (resolve) {
+            document.getElementById('uiConfirmMsg').textContent = msg;
+            document.getElementById('uiConfirmBox').style.display = 'flex';
+            _uiConfirmResolve = resolve;
+        });
+    }
+    function _uiConfirmAnswer(ok) {
+        const box = document.getElementById('uiConfirmBox');
+        if (box) box.style.display = 'none';
+        if (_uiConfirmResolve) { const r = _uiConfirmResolve; _uiConfirmResolve = null; r(ok); }
+    }
+
+    // ============ 催办 ============
+    async function urge(rid, cnt) {
+        const ok = await uiConfirm('确认催办这条手尾？\n\n将同时提醒该手尾的全部相关责任人（调试责任人/调试上级/安装主管/派工链执行人/追加责任人等共 ' + cnt + ' 人），并留下催办记录。');
+        if (!ok) return;
+        try {
+            const resp = await fetch('/api/urge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rid: rid })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                showToast(data.msg || '催办成功', 'ok');
+            } else {
+                showToast(data.msg || '催办失败', 'err');
+            }
+        } catch (e) {
+            showToast('催办请求失败：' + e.message, 'err');
+        }
+    }
+
+    // ============ 责任链可视化（把“调试上级:A,B | 调试:C”解析为标签组） ============
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function renderChainCells() {
+        document.querySelectorAll('td[data-label="责任链"]').forEach(function (td) {
+            // V1.16.3：服务端已渲染成「每角色一行」(.chain-group) → 别再重复解析文本（否则糊成一行）
+            if (td.querySelector('.chain-group')) return;
+            const raw = td.textContent.trim();
+            if (!raw || raw === '—') { td.innerHTML = '<span class="text-muted">—</span>'; return; }
+            const groups = raw.split(/\s*\|\s*/).filter(Boolean);
+            let html = '';
+            groups.forEach(function (g) {
+                const m = g.match(/^([^：:]+)[：:](.+)$/);
+                if (!m) {
+                    html += '<span class="chain-group"><span class="chain-name">' + escapeHtml(g) + '</span></span>';
+                    return;
+                }
+                const label = m[1].trim();
+                const names = m[2].split(/[,，、]/).map(function (n) { return n.trim(); }).filter(Boolean);
+                html += '<div class="chain-group">' +
+                    '<span class="chain-role">' + escapeHtml(label) + '</span>' +
+                    names.map(function (n) { return '<span class="chain-name">' + escapeHtml(n) + '</span>'; }).join('') +
+                    '</div>';
+            });
+            td.innerHTML = '<div class="chain-cell">' + html + '</div>';
+        });
+    }
+
+    // ============ 初始化 ============
+    // V1.16.4：冻结列（序号 + 系统名称）第 2 列的 sticky 偏移 = 第 1 列的**实测**宽度。
+    //          手机端写死 42px，桌面端列宽自适应，写死会错位（第 2 列会盖住或留缝）。
+    function syncStickyCols() {
+        var t = document.getElementById('myTable');
+        if (!t || !t.tHead || !t.tHead.rows.length) return;
+        var ths = t.tHead.rows[0].cells;
+        if (ths.length < 2) return;
+        t.style.setProperty('--c1w', Math.round(ths[0].getBoundingClientRect().width) + 'px');
+    }
+    // V1.61：搜索栏已通栏拉满、漏斗叠在右端，手机也放得下整句提示 ⇒ 不再缩短为「搜索」
+    function fitFilterbar() {
+        var kw = document.getElementById('filterKw');
+        if (!kw) return;
+        kw.placeholder = '搜索描述 / 人员 / 看板';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        renderStatusOptions();
+        renderShipOptions();
+        renderChainCells();
+        setScope(currentScope);
+        syncStickyCols();
+        fitFilterbar();
+        setTimeout(syncStickyCols, 400);   // 等字体/换行稳定后再量一次
+    });
+    window.addEventListener('resize', function () { syncStickyCols(); fitFilterbar(); });
+</script>
+
+<script>
+    /* ===== V1.36：编辑表单一次只开一个，按钮与面板状态同步 ===== */
+    function hlToggleEdit(id, forceClose) {
+        var box = document.getElementById('hlEdit' + id);
+        var btn = document.getElementById('hlEditBtn' + id);
+        if (!box) return;
+        var willOpen = !forceClose && box.hidden;
+        document.querySelectorAll('.hl-edit-bd').forEach(function (x) { x.hidden = true; });
+        document.querySelectorAll('.hl-act.pri').forEach(function (x) {
+            x.classList.remove('on'); x.setAttribute('aria-expanded', 'false');
+        });
+        if (willOpen) {
+            box.hidden = false;
+            if (btn) { btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); }
+        }
+    }
+
+    /* 自定义文件按钮：把选中的文件名回显到按钮旁边 */
+    function hlFilePicked(id) {
+        var i = document.getElementById('hlPhoto' + id);
+        var n = document.getElementById('hlPhotoName' + id);
+        if (i && n) n.textContent = (i.files && i.files.length) ? i.files[0].name : '未选择任何文件';
+    }
+
+    /* ===== V1.36：高级筛选收进顶部漏斗按钮；条件摘要改成按钮 title + 小红点 ===== */
+    function v16ToggleFilter() {
+        var card = document.getElementById('v16FilterCard');
+        var btn = document.getElementById('filterToggleBtn');
+        if (!card) return;
+        var open = !card.classList.contains('show');
+        card.classList.toggle('show', open);
+        if (btn) {
+            btn.classList.toggle('on', open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        try { localStorage.setItem('v16_filter_open', open ? '1' : '0'); } catch (e) {}
+    }
+    function v16FilterSum() {
+        var btn = document.getElementById('filterToggleBtn');
+        if (!btn) return;
+        var parts = [];
+        var st = document.getElementById('statusFilterBtnText');
+        var t = st ? (st.textContent || '').trim() : '';
+        if (t && t !== '全部状态') parts.push(t);
+        var sh = document.getElementById('filterShip');
+        if (sh && sh.value && sh.selectedIndex >= 0) parts.push(sh.options[sh.selectedIndex].text);
+        var sy = (document.getElementById('filterSys') || {}).value || '';
+        if (sy.trim()) parts.push('类别: ' + sy.trim());
+        var kw = (document.getElementById('filterKw') || {}).value || '';
+        if (kw.trim()) parts.push('关键字: ' + kw.trim());
+        var ov = document.getElementById('onlyOverdue');
+        if (ov && ov.checked) parts.push('仅超时');
+        btn.title = parts.length ? ('筛选：' + parts.join(' · ')) : '筛选';
+        btn.classList.toggle('hasfilter', parts.length > 0);
+    }
+    (function () {
+        // 包一层 updateTableFilter：任何筛选动作后同步刷新摘要
+        if (typeof window.updateTableFilter === 'function') {
+            var _o = window.updateTableFilter;
+            window.updateTableFilter = function () {
+                var r = _o.apply(this, arguments);
+                v16FilterSum();
+                return r;
+            };
+        }
+        // 记住上次是展开还是收起
+        try {
+            if (localStorage.getItem('v16_filter_open') === '1') {
+                var card = document.getElementById('v16FilterCard');
+                var btn = document.getElementById('filterToggleBtn');
+                if (card) card.classList.add('show');
+                if (btn) { btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); }
+            }
+        } catch (e) {}
+        v16FilterSum();
+    })();
+</script>
+
+<script>
+    /* ===== V1.9：表格分页（前端分页，跟原有筛选联动）===== */
+    (function () {
+        var PAGE = 1, SIZE = 10;
+        function rows() {
+            return [].slice.call(document.querySelectorAll('#myTable tbody tr[data-ismine]'));
+        }
+        function snapshot() {
+            rows().forEach(function (tr) {
+                tr.dataset.vok = (tr.style.display !== 'none') ? '1' : '0';
+            });
+        }
+        function render() {
+            var all = rows(), ok = [], i, box, h, start, end, p;
+            for (i = 0; i < all.length; i++) { if (all[i].dataset.vok !== '0') { ok.push(all[i]); } }
+            var total = ok.length, pages = Math.max(1, Math.ceil(total / SIZE));
+            if (PAGE > pages) { PAGE = pages; }
+            if (PAGE < 1) { PAGE = 1; }
+            var from = (PAGE - 1) * SIZE, to = from + SIZE;
+            for (i = 0; i < all.length; i++) { all[i].style.display = 'none'; }
+            for (i = from; i < to && i < ok.length; i++) { ok[i].style.display = ''; }
+            box = document.getElementById('v16Pager');
+            if (!box) { return; }
+            if (!total) { box.innerHTML = ''; return; }
+            h = '';
+            start = Math.max(1, PAGE - 2); end = Math.min(pages, start + 4); start = Math.max(1, end - 4);
+            if (PAGE > 1) { h += '<button class="pg arrow" onclick="v16Go(' + (PAGE - 1) + ')">\u2039</button>'; }
+            for (p = start; p <= end; p++) {
+                h += '<button class="pg' + (p === PAGE ? ' on' : '') + '" onclick="v16Go(' + p + ')">' + p + '</button>';
+            }
+            if (PAGE < pages) { h += '<button class="pg arrow" onclick="v16Go(' + (PAGE + 1) + ')">\u203a</button>'; }
+            h += '<span class="v16-xs v16-muted" style="margin-left:6px">第 ' + PAGE + '/' + pages + ' 页</span>';
+            box.innerHTML = h;
+        }
+        window.v16Go = function (p) {
+            PAGE = p;
+            render();
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+            catch (e) { try { window.scrollTo(0, 0); } catch (e2) {} }
+        };
+        if (typeof window.updateTableFilter === 'function') {
+            var _o = window.updateTableFilter;
+            window.updateTableFilter = function () {
+                var r = _o.apply(this, arguments);
+                snapshot();
+                PAGE = 1;
+                render();
+                return r;
+            };
+        }
+        snapshot();
+        render();
+    })();
+</script>
+
+{# V1.20.1：亮点提交表单 JS 已随表单迁回「亮点展示」页 #}
+</body>
+</html>

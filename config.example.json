@@ -1,0 +1,60 @@
+{
+  "db": {
+    "type": "<CHANGE_ME>",
+    "host": "<CHANGE_ME>",
+    "port": 0,
+    "user": "<CHANGE_ME>",
+    "password": "<CHANGE_ME>",
+    "database": "<CHANGE_ME>"
+  },
+  "admin": {
+    "username": "<CHANGE_ME>",
+    "password": "<CHANGE_ME>",
+    "remember_days": 0
+  },
+  "secret_key": "<CHANGE_ME_随机长字符串>",
+  "webhook_url": "https://example.com/webhook",
+  "chz": {
+    "enabled": true,
+    "base_url": "<CHANGE_ME>",
+    "companyId": "<CHANGE_ME>",
+    "account": "<CHANGE_ME>",
+    "password": "<CHANGE_ME>",
+    "uuid": "<CHANGE_ME>",
+    "appId": "<CHANGE_ME>",
+    "msgType": 0,
+    "sourceTargetType": 0,
+    "user_cache_file": "<CHANGE_ME>"
+  },
+  "site_url": "http://127.0.0.1:5000",
+  "host": "0.0.0.0",
+  "port": 5000,
+  "safety_thresholds": {
+    "l1": 0,
+    "l2": 0
+  },
+  "thresholds": {
+    "l1": 0,
+    "l2": 0
+  },
+  "no_login": true,
+  "no_login_role": "debug_user",
+  "no_login_name": "<CHANGE_ME>",
+  "sso_enforce_admin": true,
+  "sso_require": false,
+  "id_lock": false,
+  "online_guard": true,
+  "sso": {
+    "enabled": true,
+    "note": "<CHANGE_ME>"
+  },
+  "push_dry_run": true,
+  "safety_review": {
+    "depts": [
+      "<CHANGE_ME>",
+      "<CHANGE_ME>"
+    ],
+    "extra_phones": [],
+    "extra_names": []
+  }
+}

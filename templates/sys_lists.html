@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统清单 - 船舶完整性管理看板</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* V1.50 三卡片重构：色彩取自 v16.css 唯一色板 + 中性令牌；
+           字号/间距/圆角取自 tokens.css（--fs-* / --sp-* / --rd-*）。
+           🔴 全站 .btn-brand 有渐变+发光+!important 规则，本页一律用自有 .sy-* 控件。 */
+        body.v16.sy-page {
+            padding-bottom: calc(var(--sp-5) + env(safe-area-inset-bottom));
+        }
+        /* C1 中性背景覆盖：theme.css:29 的 body{background:var(--sy-bg) !important}
+           是全站接管段，必须同等权重 + 更高特异性；作用域仅本页，不影响其它页面。 */
+        html body.v16.sy-page { background: var(--v16-bg-neutral) !important; }
+        /* 顶栏：白底 + 细分割线，滚动时长驻 */
+        body.v16.sy-page .v16-top {
+            position: sticky; top: 0; z-index: 30;
+            background: var(--v16-card-neutral);
+            border-bottom: 1px solid var(--v16-line-neutral);
+        }
+        /* 居中容器：桌面限宽，手机全宽 */
+        .sy-shell { max-width: 1040px; margin: 0 auto;
+                    padding: var(--sp-4) var(--sp-4) var(--sp-5); }
+        .sy-head { display: flex; align-items: flex-start; justify-content: space-between;
+                   gap: var(--sp-3); margin-bottom: var(--sp-4); }
+        .sy-eyebrow { font-size: var(--fs-sub); font-weight: 600; letter-spacing: .04em;
+                      color: var(--v16-sub); margin-bottom: 4px; }
+        .sy-h1 { font-size: var(--fs-h1); font-weight: 600; line-height: 1.3;
+                 color: var(--v16-txt); margin: 0 0 4px; letter-spacing: -.01em; }
+        .sy-head-sub { font-size: var(--fs-sub); line-height: 1.55; color: var(--v16-sub); margin: 0; }
+        /* 三张卡片：纯白底 + 1px 描边 + 极弱阴影，层次靠底色差而非重框 */
+        .sy-card { background: var(--v16-card-neutral); border: 1px solid var(--v16-line-neutral);
+                   border-radius: var(--rd); box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+                   margin: 0 0 var(--sp-3); overflow: hidden; }
+        html[data-theme="dark"] .sy-card { box-shadow: none; }
+        .sy-card-hd { display: flex; align-items: center; justify-content: space-between;
+                      gap: var(--sp-2); min-height: 46px; padding: 10px var(--sp-4);
+                      border-bottom: 1px solid var(--v16-line-neutral); }
+        .sy-h2 { font-size: var(--fs-h2); font-weight: 600; line-height: 1.35;
+                 color: var(--v16-txt); margin: 0; }
+        .sy-card-hd-meta { font-size: var(--fs-sub); color: var(--v16-sub); white-space: nowrap; }
+        .sy-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 10px;
+                    border-radius: var(--rd-pill); background: var(--v16-subtle-neutral);
+                    color: var(--v16-txt); font-size: var(--fs-xs); font-weight: 600; }
+        .sy-card-bd { padding: var(--sp-3) var(--sp-4); }
+        .sy-label { display: block; font-size: var(--fs-sub); font-weight: 500;
+                    color: var(--v16-sub); margin-bottom: 6px; }
+        .sy-note { font-size: var(--fs-sub); line-height: 1.55; color: var(--v16-sub); margin: 8px 0 0; }
+        /* 统一控件：36px 高 / 8px 圆角 / 1px 描边 / 同一个 focus 环 */
+        body.v16.sy-page .sy-control {
+            display: block; width: 100%; height: 36px; padding: 0 12px;
+            border: 1px solid var(--v16-line-neutral); border-radius: var(--rd-sm);
+            background: var(--v16-card-neutral); color: var(--v16-txt);
+            font-family: inherit; font-size: var(--fs-body); font-weight: 400; line-height: 1.4;
+            box-shadow: none; outline: none;
+            transition: border-color .15s ease, box-shadow .15s ease; }
+        body.v16.sy-page .sy-control:focus {
+            border-color: var(--v16-accent); outline: none;
+            box-shadow: 0 0 0 3px var(--v16-focus-ring); }
+        body.v16.sy-page .sy-control::placeholder { color: var(--v16-sub); opacity: .8; }
+        body.v16.sy-page input.sy-file { padding: 0; cursor: pointer; }
+        body.v16.sy-page input.sy-file::file-selector-button {
+            height: 100%; margin: -1px 12px -1px -1px; padding: 0 12px;
+            border: 0; border-right: 1px solid var(--v16-line-neutral);
+            border-radius: 7px 0 0 7px; background: var(--v16-subtle-neutral);
+            color: var(--v16-txt); font-family: inherit; font-size: var(--fs-body);
+            cursor: pointer; }
+        /* 自有按钮：不带 bootstrap .btn / .btn-brand，避开 theme.css 的渐变与 !important */
+        body.v16.sy-page .sy-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            height: 36px; padding: 0 16px; border-radius: var(--rd-sm);
+            font-size: var(--fs-body); font-weight: 500; line-height: 1;
+            white-space: nowrap; cursor: pointer; text-decoration: none;
+            box-shadow: none; transform: none;
+            transition: background-color .15s ease, border-color .15s ease, opacity .15s ease; }
+        body.v16.sy-page .sy-btn-primary {
+            background: var(--v16-accent); background-image: none;
+            color: var(--v16-accent-ink); border: 1px solid var(--v16-accent); }
+        body.v16.sy-page .sy-btn-primary:hover, body.v16.sy-page .sy-btn-primary:focus {
+            background: var(--v16-accent); background-image: none;
+            color: var(--v16-accent-ink); opacity: .88; box-shadow: none; transform: none; }
+        body.v16.sy-page .sy-btn-primary:disabled { opacity: .55; cursor: default; }
+        body.v16.sy-page .sy-btn-ghost {
+            background: transparent; color: var(--v16-txt);
+            border: 1px solid var(--v16-line-neutral); }
+        body.v16.sy-page .sy-btn-ghost:hover { background: var(--v16-subtle-neutral);
+            color: var(--v16-txt); transform: none; }
+        /* 清单管理工具栏：导入 / 新增 / 搜索 收进同一张卡片，不再各占一大区块 */
+        .sy-tool { display: flex; flex-direction: column; gap: var(--sp-2); }
+        .sy-tool-row { display: flex; align-items: center; gap: var(--sp-2); }
+        .sy-tool-row .sy-file, .sy-tool-row .sy-input { flex: 1 1 0%; min-width: 0; }
+        .sy-tool-row .sy-search { flex: 0 1 220px; min-width: 130px; margin-left: auto; }
+        .sy-tool-row .sy-btn { flex: 0 0 auto; }
+        .sy-link { font-size: var(--fs-body); color: var(--v16-accent);
+                   text-decoration: none; white-space: nowrap; }
+        .sy-link:hover { text-decoration: underline; }
+        /* 折叠说明：默认只占一行，展开是中性信息面板 */
+        .sy-tip { margin-top: var(--sp-3); font-size: var(--fs-sub); }
+        .sy-tip > summary { list-style: none; cursor: pointer; display: inline-flex;
+            align-items: center; padding: 3px 0; color: var(--v16-sub); }
+        .sy-tip > summary::-webkit-details-marker { display: none; }
+        .sy-tip[open] > summary { color: var(--v16-txt); }
+        .sy-tip-body { margin-top: var(--sp-2); padding: 10px 12px;
+            border: 1px solid var(--v16-line-neutral); background: var(--v16-subtle-neutral);
+            border-radius: var(--rd-sm); line-height: 1.7; color: var(--v16-txt);
+            font-size: var(--fs-sub); }
+        .sy-tip-strong { font-weight: 600; margin-bottom: var(--sp-1); }
+        .sy-tip-body strong { color: inherit; font-weight: 600; }
+        /* 清单表格：压回 v16.css:288 的手机卡片化，恢复表头并压缩行高 */
+        .sy-table-wrap { overflow-x: auto; }
+        body.v16.sy-page .sys-table { width: 100%; border-collapse: collapse; border-spacing: 0;
+            margin: 0; font-size: var(--fs-body); background: transparent; border-radius: 0; }
+        body.v16.sy-page .sys-table thead { display: table-header-group; }
+        body.v16.sy-page .sys-table thead th {
+            background: var(--v16-subtle-neutral); color: var(--v16-sub);
+            font-size: var(--fs-sub); font-weight: 600; letter-spacing: .02em;
+            padding: 8px var(--sp-4); border-bottom: 1px solid var(--v16-line-neutral);
+            text-align: left; white-space: nowrap; }
+        body.v16.sy-page .sys-table thead th.sy-col-num,
+        body.v16.sy-page .sys-table thead th.sy-col-ops { text-align: right; }
+        body.v16.sy-page .sys-table tbody td {
+            padding: 6px var(--sp-4); vertical-align: middle; line-height: 1.45;
+            border-bottom: 1px solid var(--v16-line-neutral); background: transparent !important; }
+        body.v16.sy-page .sys-table tbody tr:last-child td { border-bottom: 0; }
+        /* C2 压住 theme.css:526/527 暗色淡蓝斑马纹 / hover（同为 !important，靠特异性取胜） */
+        html body.v16.sy-page .sys-table tbody tr:nth-child(even) td {
+            background: transparent !important; }
+        html body.v16.sy-page .sys-table tbody tr:hover td {
+            background: var(--v16-subtle-neutral) !important; }
+        body.v16.sy-page .sys-row-name { font-weight: 500; font-size: var(--fs-body); color: var(--v16-txt); }
+        body.v16.sy-page .sys-row-count { color: var(--v16-sub); text-align: right;
+            font-size: var(--fs-sub); white-space: nowrap; }
+        body.v16.sy-page .sys-row-ops { text-align: right; white-space: nowrap; }
+        /* 轻量操作按钮：默认无框无底色，hover 才显形；删除仅在 hover / 二次确认时显危险色 */
+        body.v16.sy-page .sy-op {
+            display: inline-flex; align-items: center; justify-content: center;
+            height: 24px; padding: 0 10px; margin-left: 4px;
+            border: 1px solid transparent; border-radius: var(--rd-xs);
+            background: transparent; color: var(--v16-sub);
+            font-family: inherit; font-size: var(--fs-sub); font-weight: 400; line-height: 1;
+            cursor: pointer; white-space: nowrap;
+            transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
+        body.v16.sy-page .sy-op:hover { background: var(--v16-subtle-neutral);
+            color: var(--v16-txt); border-color: var(--v16-line-neutral); }
+        body.v16.sy-page .sy-op-danger:hover,
+        body.v16.sy-page .sy-op-danger[data-armed="1"] {
+            background: var(--v16-badbg); color: var(--v16-bad); border-color: var(--v16-badbg); }
+        .sy-empty, .sy-nomatch { text-align: center; color: var(--v16-sub);
+            font-size: var(--fs-body); padding: var(--sp-5) var(--sp-3); }
+        .sy-nomatch[hidden] { display: none; }
+        /* 反馈与弹窗：与卡片同一套中性语言 */
+        .wb-toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 1080; max-width: 92vw; padding: 10px 18px; border-radius: var(--rd);
+            font-size: var(--fs-body); font-weight: 500; color: #fff; background: rgba(28,35,49,.93);
+            opacity: 0; transition: opacity .25s ease; pointer-events: none; }
+        .wb-toast.show { opacity: 1; }
+        .wb-toast.ok { background: #1a7f4e; }
+        .wb-toast.err { background: #c0392b; }
+        .v145-alert { display: none; margin-top: var(--sp-3); padding: 11px 13px;
+            border-radius: var(--rd-sm); border: 1px solid #e6a49c; background: #fdecea;
+            color: #9d1c12; font-size: var(--fs-sub); font-weight: 500;
+            line-height: 1.75; white-space: pre-line; }
+        .v145-alert.on { display: block; }
+        html[data-theme="dark"] .v145-alert { background: #3a1e1c; border-color: #8b4b43; color: #ffc9c2; }
+        body.v16.sy-page .modal-content { border-radius: var(--rd);
+            background: var(--v16-card-neutral); color: var(--v16-txt);
+            border: 1px solid var(--v16-line-neutral); box-shadow: none; }
+        body.v16.sy-page .modal-header { background: var(--v16-subtle-neutral);
+            border-bottom: 1px solid var(--v16-line-neutral); }
+        body.v16.sy-page .modal-footer { border-top: 1px solid var(--v16-line-neutral); }
+        body.v16.sy-page .modal-title { font-size: var(--fs-h2); font-weight: 600; }
+        body.v16.sy-page .sy-readonly { display: flex; align-items: center;
+            height: 36px; padding: 0 12px; margin: 0;
+            border: 1px solid var(--v16-line-neutral); border-radius: var(--rd-sm);
+            background: var(--v16-subtle-neutral); color: var(--v16-txt);
+            font-size: var(--fs-body); }
+        @media (min-width: 768px) {
+            .sy-shell { padding: var(--sp-5) var(--sp-4) var(--sp-5); }
+            .sy-card-bd { padding: var(--sp-4); }
+        }
+        @media (max-width: 767.98px) {
+            .sy-shell { padding: var(--sp-3) var(--sp-3) var(--sp-5); }
+            .sy-head { flex-wrap: wrap; }
+            .sy-card-hd { padding: 10px var(--sp-3); }
+            .sy-card-bd { padding: var(--sp-3); }
+            .sy-tool-row .sy-search { flex: 1 1 100%; min-width: 0; margin-left: 0; }
+            .sy-tool-row { flex-wrap: wrap; }
+            .sy-tool-row .sy-link { flex: 0 0 100%; }
+            body.v16.sy-page .sys-table thead th,
+            body.v16.sy-page .sys-table tbody td { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+            body.v16.sy-page .sy-op { height: 24px; padding: 0 8px; margin-left: 2px; }
+        }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16 sy-page">
+<div class="v16-top">
+    <a class="bk" href="{{ '/safety' if IS_SAFETY else '/boards' }}">&#8249; 返回</a>
+    <h1 class="ttl">{{ '隐患类别' if IS_SAFETY else '系统清单' }}</h1>
+    <span class="rt">{{ user_name if user_name else '' }}</span>
+</div>
+<div class="sy-shell">
+    <div class="sy-head">
+        <div>
+            <div class="sy-eyebrow">{{ '隐患类别' if IS_SAFETY else '系统清单' }}维护</div>
+            <h2 class="sy-h1">选择看板，管理清单</h2>
+            <p class="sy-head-sub">导入只追加、不删除 · {% if can_edit %}你有维护权限{% else %}由管理员维护{% endif %}</p>
+        </div>
+        {% if ship_id %}
+        <a class="sy-btn sy-btn-ghost" href="{{ '/safety/board/' if IS_SAFETY else '/board/' }}{{ ship_id }}">进入该看板 &#8594;</a>
+        {% endif %}
+    </div>
+
+    {% if not ships %}
+    <section class="sy-card"><div class="sy-empty">暂无可用的产品船看板，请联系超级管理员新建。</div></section>
+    {% else %}
+
+    <!-- 卡片 1：看板选择 + 当前清单数量 -->
+    <section class="sy-card">
+        <div class="sy-card-hd">
+            <h2 class="sy-h2">当前看板</h2>
+            <span class="sy-badge">共 <b id="sysCount">{{ sys_names|length }}</b> 项</span>
+        </div>
+        <div class="sy-card-bd">
+            <label class="sy-label" for="shipSelect">选择看板</label>
+            <select id="shipSelect" class="sy-control sy-select"
+                    onchange="window.location.href='/syslists?ship_id=' + this.value;">
+                {% for s in ships %}
+                <option value="{{ s.id }}" {% if s.id == ship_id %}selected{% endif %}>
+                    {{ s.name }}{% if s.ship_no %}（{{ s.ship_no }}）{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+            <p class="sy-note">改名会同步更新历史记录{% if not can_edit %} · 你只有查看权限{% endif %}</p>
+        </div>
+    </section>
+
+    {% if can_edit %}
+    <!-- 卡片 2：清单管理工具栏（导入 / 新增 / 搜索 收进同一区块） -->
+    <section class="sy-card">
+        <div class="sy-card-hd">
+            <h2 class="sy-h2">清单管理</h2>
+            <span class="sy-card-hd-meta">导入 · 新增 · 搜索</span>
+        </div>
+        <div class="sy-card-bd">
+            <div class="sy-tool">
+                <div class="sy-tool-row">
+                    <a class="sy-link"
+                       href="/static/downloads/{{ 'safety_category_import_template.xlsx' if IS_SAFETY else 'syslist_import_template.xlsx' }}"
+                       download="{{ '隐患类别导入模板.xlsx' if IS_SAFETY else '系统清单导入模板.xlsx' }}">下载模板 &#8599;</a>
+                    <input type="file" id="importFile" class="sy-control sy-file" accept=".xlsx,.xlsm">
+                    <button type="button" class="sy-btn sy-btn-primary" onclick="doImport()">导入</button>
+                </div>
+                <div class="sy-tool-row">
+                    <input type="text" id="newSysName" class="sy-control sy-input" maxlength="100"
+                           placeholder="输入系统名称，回车新增" onkeydown="if(event.key==='Enter')doAdd()">
+                    <button type="button" class="sy-btn sy-btn-ghost" onclick="doAdd()">新增</button>
+                    <input type="search" id="sysSearch" class="sy-control sy-search"
+                           placeholder="搜索系统名称…" oninput="filterRows(this.value)">
+                </div>
+            </div>
+            <details class="sy-tip">
+                <summary>格式要求 &#8250;</summary>
+                <div class="sy-tip-body">
+                    <div class="sy-tip-strong">&#9888;&#65039; 请严格按模板填，格式不对会报警并整批拒绝</div>
+                    <div>只认<strong>第一张工作表的 A 列</strong>；A1 必须写「<strong>名称</strong>」；从第 2 行起<strong>每行一个名称</strong>，只填 A 列。</div>
+                    <div>不要合并单元格、不要一行写多个、不要留空行、不要重复、不要把 .csv 改后缀；B 列及以后必须留空。导入<strong>只追加不删除</strong>，清单里已有的会自动跳过。</div>
+                    <div>模板里 3 行是示例，<strong>正式导入前请删掉</strong>；格式错误时一条都不会导进去，不用怕导脏。</div>
+                </div>
+            </details>
+            <div id="importAlert" class="v145-alert" role="alert"></div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- 卡片 3：清单列表 -->
+    <section class="sy-card sy-card-list">
+        <div class="sy-card-hd">
+            <h2 class="sy-h2">清单</h2>
+            <span class="sy-card-hd-meta"><span id="visibleCount">{{ sys_names|length }}</span> / {{ sys_names|length }} 项</span>
+        </div>
+        <div class="sy-table-wrap">
+            <table class="sys-table">
+                <thead>
+                    <tr>
+                        <th>系统名称</th>
+                        <th class="sy-col-num" style="width:88px;">在用</th>
+                        {% if can_edit %}<th class="sy-col-ops" style="width:132px;">操作</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody id="sysTableBody">
+                    {% for name in sys_names %}
+                    <tr data-name="{{ name }}">
+                        <td class="sys-row-name">{{ name }}</td>
+                        <td class="sys-row-count">{{ sys_counts.get(name, 0) }} 条</td>
+                        {% if can_edit %}
+                        <td class="sys-row-ops">
+                            <button type="button" class="sy-op" onclick="openRename(this)" data-old="{{ name }}">改名</button>
+                            <button type="button" class="sy-op sy-op-danger" onclick="askDelete(this)" data-old="{{ name }}">删除</button>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% else %}
+                    <tr class="sy-row-empty">
+                        <td colspan="{% if can_edit %}3{% else %}2{% endif %}" class="sy-empty">
+                            还没有系统清单{% if can_edit %}——请用上方工具栏导入或新增{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div id="sysNoMatch" class="sy-nomatch" hidden>没有匹配的项</div>
+        </div>
+    </section>
+    {% endif %}
+</div>
+
+<!-- 重命名模态框 -->
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">改名</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="renameOld">
+                <div class="mb-3">
+                    <label class="form-label">原名称</label>
+                    <p class="sy-readonly mb-0" id="renameOldShow"></p>
+                    <div class="form-text">确认后，该看板下所有以原名称发出的<strong>历史记录将一并改名</strong>。</div>
+                </div>
+                <div>
+                    <label class="form-label">新名称 *</label>
+                    <input type="text" id="renameNew" class="sy-control" maxlength="100"
+                           placeholder="输入新名称" onkeydown="if(event.key==='Enter')doRename()">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="sy-btn sy-btn-ghost" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="sy-btn sy-btn-primary" onclick="doRename()">确认改名</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="wb-toast" id="wbToast"></div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+    const SHIP_ID = {{ ship_id }};
+    let toastTimer = null;
+
+    function showToast(msg, ok) {
+        const t = document.getElementById('wbToast');
+        t.textContent = msg;
+        t.className = 'wb-toast show ' + (ok ? 'ok' : 'err');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { t.className = 'wb-toast'; }, 3500);
+    }
+
+    function postJson(url, data) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json().catch(() => ({ ok: false, msg: '服务器返回异常(' + r.status + ')' })));
+    }
+
+    function postForm(url, formData) {
+        return fetch(url, { method: 'POST', body: formData })
+            .then(r => r.json().catch(() => ({ ok: false, msg: '服务器返回异常(' + r.status + ')' })));
+    }
+
+    async function reload() {
+        showToast('正在刷新…', true);
+        await new Promise(r => setTimeout(r, 400));
+        window.location.reload();
+    }
+
+    // ---- 导入 Excel（V1.45：前端先挡一道，后端再严格校验；格式不对报警 + 整批拒绝） ----
+    function v145Alert(msg) {
+        const a = document.getElementById('importAlert');
+        a.textContent = msg;
+        a.className = 'v145-alert on';
+        a.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    function v145AlertClear() {
+        const a = document.getElementById('importAlert');
+        a.textContent = '';
+        a.className = 'v145-alert';
+    }
+    async function doImport() {
+        const f = document.getElementById('importFile');
+        if (!f.files || !f.files.length) {
+            v145Alert('请先选择要导入的 Excel 文件');
+            showToast('请先选择要导入的 Excel 文件', false);
+            return;
+        }
+        const file = f.files[0];
+        if (!/\.(xlsx|xlsm)$/i.test(file.name || '')) {
+            v145Alert('【导入被拒绝】只支持 .xlsx / .xlsm 工作簿，收到的是「' + file.name + '」。\n请下载导入模板，填完另存为 .xlsx 再传（.xls / .csv 改后缀都不行）。');
+            showToast('文件格式不对，导入被拒绝', false);
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            v145Alert('【导入被拒绝】文件超过 2 MB，请精简后重传。');
+            showToast('文件太大，导入被拒绝', false);
+            return;
+        }
+        const btn = document.querySelector('button[onclick="doImport()"]');
+        if (btn) { btn.disabled = true; btn.textContent = '校验中…'; }
+        const fd = new FormData();
+        fd.append('ship_id', SHIP_ID);
+        fd.append('sys_file', file);
+        let data;
+        try {
+            data = await postForm('/api/syslists/import', fd);
+        } catch (e) {
+            data = { ok: false, rejected: true, msg: '导入失败：网络异常，请重试。' };
+        }
+        if (btn) { btn.disabled = false; btn.textContent = '导入'; }
+        if (data.ok) {
+            v145AlertClear();
+            showToast(data.msg || '导入完成', true);
+            await reload();
+        } else {
+            v145Alert(data.rejected ? (data.msg || '格式不对，导入被拒绝')
+                                    : ('导入失败：' + (data.msg || '未知原因')));
+            showToast(data.rejected ? '格式不对，已整批拒绝' : '导入失败', false);
+        }
+    }
+
+    // ---- 手动新增 ----
+    async function doAdd() {
+        const input = document.getElementById('newSysName');
+        const name = (input.value || '').trim();
+        if (!name) { showToast('请输入名称', false); return; }
+        const fd = new FormData();
+        fd.append('ship_id', SHIP_ID);
+        fd.append('name', name);
+        const data = await postForm('/api/syslists/add', fd);
+        showToast(data.msg || '新增失败', !!data.ok);
+        if (data.ok) await reload();
+    }
+
+    // ---- 重命名 ----
+    function openRename(btn) {
+        const oldName = btn.dataset.old;
+        document.getElementById('renameOld').value = oldName;
+        document.getElementById('renameOldShow').textContent = oldName;
+        document.getElementById('renameNew').value = '';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('renameModal')).show();
+        setTimeout(() => {
+            const inp = document.getElementById('renameNew');
+            inp.focus();
+        }, 300);
+    }
+
+    async function doRename() {
+        const oldName = (document.getElementById('renameOld').value || '').trim();
+        const newName = (document.getElementById('renameNew').value || '').trim();
+        if (!newName) { showToast('请输入新名称', false); return; }
+        if (oldName === newName) { showToast('新名称与原名称相同，无需修改', false); return; }
+        const data = await postJson('/api/syslists/rename', {
+            ship_id: SHIP_ID, old_name: oldName, new_name: newName
+        });
+        showToast(data.msg || '改名失败', !!data.ok);
+        if (data.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('renameModal'))?.hide();
+            await reload();
+        }
+    }
+
+    // ---- 删除（V1.6 A4）----
+    // 手机端 WebView 会静默拦截原生 confirm()，改成「点两次」确认
+    function askDelete(btn) {
+        if (btn.dataset.armed === '1') { doDelete(btn.dataset.old); return; }
+        btn.dataset.armed = '1';
+        const old = btn.textContent;
+        btn.textContent = '确认删除？';
+        setTimeout(() => { btn.dataset.armed = ''; btn.textContent = old; }, 3000);
+    }
+
+    async function doDelete(name) {
+        let data = await postJson('/api/syslists/delete', { ship_id: SHIP_ID, name: name });
+        // V1.16.5：被历史记录引用过 → 先问一句，确认后带 force 再删（只删清单项，记录不动）
+        if (!data.ok && data.used) {
+            const msg = '「' + name + '」已被 ' + data.used + ' 条记录使用。\n' +
+                        '仍要删掉吗？（历史记录里的类别名会原样保留，不会丢数据）';
+            let ok = false;
+            if (window.uiConfirm) { ok = await window.uiConfirm(msg); }
+            else { ok = window.confirm(msg); }
+            if (!ok) return;
+            data = await postJson('/api/syslists/delete', { ship_id: SHIP_ID, name: name, force: 1 });
+        }
+        showToast(data.msg || '删除失败', !!data.ok);
+        if (data.ok) await reload();
+    }
+
+    // ---- 清单即时搜索（纯前端过滤，不请求后端；V1.50）----
+    function filterRows(q) {
+        q = (q || '').trim().toLowerCase();
+        const rows = document.querySelectorAll('#sysTableBody tr[data-name]');
+        let n = 0;
+        rows.forEach(function (tr) {
+            const hit = !q || (tr.getAttribute('data-name') || '').toLowerCase().indexOf(q) >= 0;
+            tr.style.display = hit ? '' : 'none';
+            if (hit) n++;
+        });
+        const vis = document.getElementById('visibleCount');
+        if (vis) vis.textContent = n;
+        const no = document.getElementById('sysNoMatch');
+        if (no) no.hidden = (n > 0) || rows.length === 0;
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户与鉴权</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <style>
+        .role-badge-super { background: #dc3545; color: #fff; }
+        .role-badge-sup { background: #fd7e14; color: #fff; }
+        .role-badge-user { background: #0d6efd; color: #fff; }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-approved { background: #198754; color: #fff; }
+        .status-rejected { background: #6c757d; color: #fff; }
+        /* V1.48-s3：权限说明（默认收起，不占版面） */
+        .au-role-help { margin: 0 0 12px; border: 1px solid var(--line, #e2e8f0);
+                        border-radius: 10px; background: #fff; }
+        .au-role-help > summary { cursor: pointer; padding: 9px 12px; font-size: 13px;
+                                  font-weight: 600; color: var(--navy, #14406b);
+                                  list-style: none; -webkit-tap-highlight-color: transparent; }
+        .au-role-help > summary::-webkit-details-marker { display: none; }
+        .au-role-help > summary::before { content: '\25B8'; display: inline-block; margin-right: 7px; }
+        .au-role-help[open] > summary::before { content: '\25BE'; }
+        .au-role-help-body { padding: 0 12px 12px; }
+        .au-role-help-body table { font-size: 12px; margin-bottom: 8px; }
+        .au-role-help-body th { background: #f1f5f9; white-space: nowrap; }
+        .au-role-help-body td { line-height: 1.55; word-break: break-word; vertical-align: top; }
+        .au-role-note { font-size: 12px; color: #64748b; line-height: 1.55; }
+        @media (max-width: 575.98px) {
+            .au-role-help-body table { table-layout: fixed; }
+            .au-role-help-body th:first-child { width: 30%; }
+        }
+        /* ===== V1.16.30：用户管理页内的三个标签页 ===== */
+        .au-tabs { display: flex; gap: 4px; flex-wrap: wrap;
+                   border-bottom: 2px solid var(--line, #e2e8f0); }
+        .au-tab { display: inline-block; padding: 8px 18px; font-size: 14px;
+                  color: #64748b; text-decoration: none; font-weight: 600;
+                  border: 1px solid transparent; border-bottom: none;
+                  border-radius: 10px 10px 0 0; margin-bottom: -2px; }
+        .au-tab:hover { color: var(--navy, #14406b); background: rgba(20,64,107,.05); }
+        .au-tab.active { color: #fff; background: var(--navy, #14406b);
+                         border-color: var(--navy, #14406b); }
+        @media (max-width: 575.98px) {
+            .au-tab { padding: 7px 12px; font-size: 13px; flex: 1; text-align: center; }
+        }
+        /* 姓名列固定：横向拖动表格时始终钉在左侧 */
+        #userTable th.sticky-name, #userTable td.sticky-name {
+            position: sticky; left: 0; z-index: 2;
+            background: #fff;
+            /* V1.4.3：inset 单细线替代外扩阴影，消除手机拖动时的黑色方框残影 */
+            box-shadow: inset -1px 0 0 #dee2e6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #userTable thead th.sticky-name { background: #212529; z-index: 5; }
+        #userTable tbody tr:hover td.sticky-name { background: #f8f9fa; }
+        @media (max-width: 767.98px) {
+            .container-fluid { padding: 12px; }
+            /* 表头固定 + 单元格不换行，横向滑动查看（同看板页 Excel 风格） */
+            #userTable thead th { position: sticky; top: 0; z-index: 4; background: #212529; font-size: 12px; white-space: nowrap; }
+            #userTable td { white-space: nowrap; padding: 6px; font-size: 13px; }
+            /* 🔴 V1.16.36（用户报障「这里超线了」，截图 500px 宽手机）：
+               原来「操作」列里 3~5 个按钮全排在一行，且 td 被设成 white-space:nowrap
+               ⇒ 这一列宽到 400px+，把整张表撑出屏幕；横向滑动时姓名列钉在左边
+               盖住按钮（截图里「匹配工号」被切成「工号」、「删除」被切掉一半）。
+               修法：操作列**允许换行**。 */
+            #userTable td.ops-cell { white-space: normal; min-width: 132px; }
+            #userTable td.ops-cell .btn,
+            #userTable td.ops-cell .role-sel {
+                margin: 0 4px 4px 0; white-space: nowrap;
+            }
+            /* 「添加账号」那张表同样处理（表头更少，但操作列一样会溢出） */
+            #userTable td.ops-cell .btn-sm { font-size: 12px; padding: 6px 8px; }
+
+            /* 🔴 V1.16.37（用户报障「按钮不要这样拥挤」，500px 手机截图里
+               一行 5 个控件几乎贴在一起）：
+               **手机上不再把按钮铺在表格里** —— 整列收成一个「管理」按钮，
+               点开从屏幕底部弹出操作面板，每个动作占满一行、点击区 44px+。
+               桌面端（≥768px）完全不变，照旧铺开。 */
+            #userTable td.ops-cell .ops-full { display: none; }
+            #userTable td.ops-cell .ops-more {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 100%; padding: 8px 6px; font-size: 13px; font-weight: 600;
+                color: #fff; background: var(--navy, #14406b);
+                border: none; border-radius: 8px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            #userTable td.ops-cell .ops-more:active { background: var(--navy-deep, #0e2f50); }
+            #userTable td.ops-cell { min-width: 78px; max-width: 104px; }
+            /* 只有**一个**动作的行（名单授权行）不折叠 —— 否则要点两下才做成一件事 */
+            #userTable td.ops-cell.ops-single .ops-full { display: block; }
+            #userTable td.ops-cell.ops-single .ops-more { display: none; }
+            #userTable td.ops-cell.ops-single { min-width: 104px; max-width: 142px; }
+        }
+        /* 🔴 V1.16.36：操作列在**任何**屏幕宽度下都不把表格撑破。
+           桌面端不限手机，窄的 td 里按钮自然换行成一列。 */
+        #userTable td.ops-cell { white-space: normal; }
+        #userTable td.ops-cell .btn { margin: 0 4px 4px 0; }
+        #userTable td.ops-cell .role-sel { margin: 0 4px 4px 0; }
+        /* ⚠️ V1.16.37：桌面端的规则必须放进 min-width 媒体查询里。
+           原来写成裸规则放在手机媒体查询**后面** ⇒ 同优先级、后写的赢，
+           会把手机端刚设好的 min-width / display 全部覆盖掉。 */
+        @media (min-width: 768px) {
+            #userTable td.ops-cell { min-width: 140px; }
+            /* 折叠入口只在手机端出现，桌面端保持原样（按钮直接铺开） */
+            #userTable td.ops-cell .ops-more { display: none; }
+        }
+        /* 手机端隐藏次要列（工号/状态/注册时间/审核人），只留「姓名 手机号 角色 操作」，
+           横向滑动距离大幅缩短 —— 这是"超线"体感最大的来源。
+           ⚠ 用 nth-child 而非 colgroup：这张表在 grant_extra 分支会多插行，
+           但**每行都是同样的 8 列**（缺的填 —），列序稳定。 */
+        @media (max-width: 575.98px) {
+            #userTable th:nth-child(3),
+            #userTable td:nth-child(3),
+            #userTable th:nth-child(5),
+            #userTable td:nth-child(5),
+            #userTable th:nth-child(6),
+            #userTable td:nth-child(6),
+            #userTable th:nth-child(7),
+            #userTable td:nth-child(7) { display: none; }
+            #userTable td.ops-cell { min-width: 78px; max-width: 96px; }
+            #userTable td.ops-cell.ops-single { min-width: 104px; max-width: 138px; }
+            #userTable th.sticky-name, #userTable td.sticky-name { max-width: 80px; }
+            /* 行高收一点，一屏能多看两行 */
+            #userTable td { padding: 5px 4px; }
+            /* V1.16.37：手机端操作列只有一个「管理」按钮，点击区给足（手指好按） */
+            #userTable td.ops-cell .ops-more { padding: 10px 6px; margin: 0; }
+        }
+        /* ===== V1.4.5 品牌：统一海工蓝（移植自样板页 boards.html，仅视觉） ===== */
+        :root {
+            --navy: #14406b; --navy-deep: #0e2f50; --blue: #2f6fae;
+            --ink: #1f2a37; --muted: #64748b; --line: #e2e8f0; --bg: #eef3f8;
+            --card-radius: 16px;
+        }
+        body, body.bg-light { background: var(--bg); color: var(--ink); }
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 9px;
+            font-weight: 600; box-shadow: 0 4px 12px rgba(20,64,107,.18); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 18px 50px rgba(10,35,70,.22); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.brand-head .modal-title { color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 9px; }
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+
+        /* ===== V1.16.37：手机端「管理」操作面板（底部抽屉） =====
+           为什么这么做：一行有 4~5 个动作，铺在 100 多像素宽的操作列里必然拥挤
+           （用户报障「按钮不要这样拥挤」）。收进抽屉后每个动作都是整行、44px 高。 */
+        .ops-sheet-mask { position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+                          opacity: 0; visibility: hidden; transition: opacity .18s ease; z-index: 1080; }
+        .ops-sheet-mask.on { opacity: 1; visibility: visible; }
+        .ops-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 1081;
+                     background: #fff; border-radius: 16px 16px 0 0;
+                     box-shadow: 0 -8px 30px rgba(10, 35, 70, .22);
+                     transform: translateY(102%); transition: transform .22s ease;
+                     max-height: 82vh; overflow-y: auto;
+                     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+        .ops-sheet.on { transform: translateY(0); }
+        .ops-sheet-head { display: flex; align-items: center; justify-content: space-between;
+                          padding: 14px 16px 10px; border-bottom: 1px solid var(--line, #e2e8f0);
+                          position: sticky; top: 0; background: #fff; z-index: 1; }
+        .ops-sheet-head b { font-size: 15px; color: var(--navy, #14406b); }
+        .ops-sheet-x { border: 1px solid var(--line, #e2e8f0); background: #fff;
+                       color: #64748b; border-radius: 8px; font-size: 13px; padding: 5px 12px; }
+        .ops-sheet-body { padding: 12px 16px 4px; }
+        /* 面板里的每个动作占满一行，点击区 ≥44px（手机手指好按） */
+        .ops-sheet-body > .btn { display: block; width: 100%; margin: 0 0 10px !important;
+                                 padding: 12px 14px; font-size: 15px; border-radius: 10px;
+                                 text-align: center; }
+        .ops-sheet-body > .role-sel { width: 100%; max-width: none; margin: 0 0 10px !important;
+                                      padding: 11px 12px; height: auto; font-size: 15px;
+                                      border-radius: 10px; }
+        .ops-sheet-cap { font-size: 12.5px; color: #64748b; margin: 0 0 6px; font-weight: 600; }
+        html[data-theme="dark"] .ops-sheet,
+        html[data-theme="dark"] .ops-sheet-head { background: #17223a; }
+        html[data-theme="dark"] .ops-sheet-head { border-color: #2b3a55; }
+        html[data-theme="dark"] .ops-sheet-head b { color: #9dc0ff; }
+        html[data-theme="dark"] .ops-sheet-x { background: #1e2a44; border-color: #2b3a55; color: #9db4d4; }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        /* V1.15 鉴权块（类名统一 gx- 前缀，避免和本页既有样式打架） */
+        .gx-badge{background:#eaf0ff;color:#1d4ed8;border-radius:20px;padding:1px 9px;font-size:12px;font-weight:600}
+        /* V1.59e：角色卡标题去塑料感——左侧角色色点 + 强调色粗体（超管=琥珀金/上级=蓝/责任人=青/审核=紫） */
+        .gx-hd{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:15px;letter-spacing:.2px}
+        .gx-hd i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+        .gx-hd.admin{color:#b45309}.gx-hd.admin i{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.16)}
+        .gx-hd.sup{color:#1d4ed8}.gx-hd.sup i{background:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.16)}
+        .gx-hd.user{color:#0e7490}.gx-hd.user i{background:#06b6d4;box-shadow:0 0 0 3px rgba(6,182,212,.16)}
+        .gx-hd.review{color:#7c3aed}.gx-hd.review i{background:#8b5cf6;box-shadow:0 0 0 3px rgba(139,92,246,.16)}
+        html[data-theme="dark"] .gx-hd.admin{color:#fbbf24}
+        html[data-theme="dark"] .gx-hd.sup{color:#93c5fd}
+        html[data-theme="dark"] .gx-hd.user{color:#67e8f9}
+        html[data-theme="dark"] .gx-hd.review{color:#c4b5fd}
+        .gx-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid #f0f3f8}
+        .gx-row:first-child{border-top:0}
+        .gx-row .nm{flex:1;min-width:0}
+        .gx-row .nm b{font-size:14px}
+        .gx-row .nm small{display:block;color:#6b7488;font-size:11.5px;margin-top:2px;
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .gx-del{border:1px solid #f0c7c7;background:#fff;color:#dc2626;border-radius:8px;font-size:12px;padding:3px 9px}
+        /* V1.16.17：固定超管王平平那一行（两个系统都有，不可删） */
+        .gx-fixed{font-size:11.5px;color:#1d4ed8;background:#eaf0ff;border-radius:20px;padding:2px 9px;white-space:nowrap}
+        html[data-theme="dark"] .gx-fixed{background:#1e2a44;color:#9dc0ff}
+        /* V1.16.17：表格里逐人改角色的下拉 */
+        .role-sel{max-width:134px;font-size:12px;padding:2px 4px}
+        .gx-add{border:1px dashed #b9c6e8;background:#f7f9ff;color:#1d4ed8;border-radius:9px;
+                font-size:13px;padding:7px 12px;font-weight:600}
+        /* V1.16.35（用户报障「三个按钮挤在一起」）：卡片底部按钮改为两行——
+           两个「添加」按钮一行平分宽度，「保存并生效」单独一行；
+           手机上保存按钮拉满宽度，一眼能看到、也不会和添加按钮挤成一坨 */
+        .gx-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+        .gx-actions .gx-add{flex:1 1 150px;text-align:center;padding:10px 12px;font-size:13.5px;white-space:nowrap}
+        .gx-save-row{margin-top:10px}
+        .gx-save-row .btn{padding:9px 26px;font-weight:600}
+        @media (max-width:575.98px){
+            .gx-save-row .btn{width:100%;padding:11px 0;font-size:14.5px}
+        }
+        .gx-empty{color:#8b93a7;font-size:13px;padding:4px 0}
+        /* V1.16.15：表格里「超管来源」的小灰字（固定 / 部门授权 / 名单授权） */
+        .row-sub{font-size:11px;color:#6b7488;margin-top:2px;white-space:nowrap}
+        html[data-theme="dark"] .row-sub{color:#9aa7bd}
+        .gx-mask{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,28,52,.42);display:none;z-index:1080}
+        .gx-mask.on{display:block}
+        .gx-dlg{position:absolute;left:50%;transform:translateX(-50%);top:5vh;width:94%;max-width:560px;background:#fff;
+                border-radius:14px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+        .gx-dlg-h{padding:12px 14px;border-bottom:1px solid #eef1f6;display:flex;align-items:center;gap:8px}
+        .gx-dlg-h b{flex:1;font-size:15px}
+        .gx-dlg-h .x{border:0;background:transparent;font-size:20px;line-height:1;color:#8b93a7}
+        .gx-q{padding:9px 12px 0}
+        .gx-q input{width:100%;border:1px solid #e3e7ee;border-radius:9px;padding:8px 10px;font-size:13.5px}
+        /* V1.16.14：选人时「已选人员」固定显示在弹窗最上面（用户管理板块） */
+        .gx-picked{display:none;padding:10px 12px 0}
+        .gx-picked.on{display:block}
+        .gx-picked .pt{font-size:12px;font-weight:700;color:#1d4ed8;margin-bottom:5px}
+        .gx-picked .pt .tip{font-weight:400;color:#6b7488}
+        .gx-picked .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:78px;overflow:auto}
+        .gx-picked .chip{display:inline-flex;align-items:center;gap:5px;background:#eaf0ff;border:1px solid #b9c9f2;
+                         color:#1d4ed8;border-radius:999px;padding:2px 6px 2px 10px;font-size:12px}
+        .gx-picked .chip b{font-weight:600}
+        .gx-picked .chip .dp{color:#6b7488;font-size:11.5px}
+        .gx-picked .chip .rm{border:0;background:transparent;color:#5b78c7;font-size:15px;line-height:1;padding:0 2px;cursor:pointer}
+        .gx-nav{display:flex;align-items:center;gap:8px;padding:7px 12px 0;flex-wrap:wrap}
+        .gx-up{border:1px solid #cfd8e3;background:#fff;color:#1d4ed8;border-radius:8px;
+               font-size:12.5px;padding:3px 10px;cursor:pointer;line-height:1.5;flex:0 0 auto}
+        .gx-up.off{opacity:.45;cursor:default}
+        .gx-crumbs{font-size:12.5px;color:#6b7488;display:flex;flex-wrap:wrap;gap:4px;align-items:center;flex:1;min-width:0}
+        .gx-crumbs a{color:#1d4ed8;text-decoration:none;cursor:pointer}
+        .gx-crumbs a.cur{color:#334155;cursor:default;font-weight:700}
+        .gx-b{overflow:auto;padding:6px 12px 12px;flex:1}
+        .gx-dept{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #f4f6fa;cursor:pointer}
+        .gx-dept .n{flex:1;font-size:13.5px}
+        .gx-dept .c{font-size:11.5px;color:#8b93a7}
+        .gx-dept .go{color:#b6bdc9;font-size:15px}
+        .gx-p{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid #f4f6fa}
+        .gx-p .n{flex:1;font-size:13.5px}
+        .gx-p .d{font-size:11.5px;color:#8b93a7}
+        .gx-p button{border:1px solid #cfd8e3;background:#fff;border-radius:8px;font-size:12px;padding:3px 10px;color:#1d4ed8}
+        .gx-p.on button{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+        /* V1.16.35（用户报障「选人按钮太小，只有右边小箭头能点」）：弹窗内整行可点 + 触屏热区加大——
+           ① 部门/人员行 min-height 46px（Apple HIG 触屏标准），点行内任意位置都生效；
+           ② 右侧箭头从裸文字改成 34×34 的圆角热区；
+           ③ 人员「选择」按钮从小药丸拉大到 min-width 64px；
+           ④ 「‹ 上一级」按钮同步加大 */
+        .gx-dept{min-height:46px}
+        .gx-dept:active{background:#f3f7ff}
+        .gx-dept .go{flex:0 0 auto;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
+                     border-radius:9px;background:#f1f5fb;color:#1d4ed8;font-size:17px;cursor:pointer}
+        .gx-dept .go:active{background:#dbe7fb}
+        .gx-p{min-height:46px;cursor:pointer}
+        .gx-p:active{background:#f3f7ff}
+        .gx-p button{min-width:64px;padding:7px 14px;font-size:13px;cursor:pointer}
+        .gx-up{padding:7px 14px;font-size:13px}
+        html[data-theme="dark"] .gx-dept .go{background:#22304a}
+        html[data-theme="dark"] .gx-dept .go:active{background:#2c3d5e}
+        html[data-theme="dark"] .gx-dept:active,html[data-theme="dark"] .gx-p:active{background:#22304a}
+        .gx-pick{padding:8px 12px;border-top:1px solid #eef1f6;display:flex;justify-content:flex-end;gap:8px}
+        .gx-pick .ok{background:#1d4ed8;color:#fff;border:0;border-radius:9px;padding:8px 18px;font-weight:600}
+        /* V1.16.14：选人弹窗暗色适配（此前弹窗写死白底、正文却是暗色主题的浅色字，部门名看不见） */
+        html[data-theme="dark"] .gx-dlg{background:#1b2436;color:#e6edf7}
+        html[data-theme="dark"] .gx-dlg-h{border-bottom-color:#2a3752}
+        html[data-theme="dark"] .gx-dlg-h .x{color:#9aa7bd}
+        html[data-theme="dark"] .gx-q input{background:#141d2e;border-color:#2c3a55;color:#e6edf7}
+        html[data-theme="dark"] .gx-crumbs{color:#9aa7bd}
+        html[data-theme="dark"] .gx-crumbs a{color:#8fb4ff}
+        html[data-theme="dark"] .gx-crumbs a.cur{color:#cbd5e1}
+        html[data-theme="dark"] .gx-up{background:#22304a;border-color:#3a4a68;color:#8fb4ff}
+        html[data-theme="dark"] .gx-up.off{opacity:.5}
+        html[data-theme="dark"] .gx-dept,html[data-theme="dark"] .gx-p{border-bottom-color:#28324a}
+        html[data-theme="dark"] .gx-dept .c,html[data-theme="dark"] .gx-dept .go,html[data-theme="dark"] .gx-p .d{color:#9aa7bd}
+        html[data-theme="dark"] .gx-p button{background:#22304a;border-color:#3a4a68;color:#8fb4ff}
+        html[data-theme="dark"] .gx-p.on button{background:#2563eb;border-color:#2563eb;color:#fff}
+        html[data-theme="dark"] .gx-pick{border-top-color:#2a3752}
+        html[data-theme="dark"] .gx-empty{color:#8b93a7}
+        html[data-theme="dark"] .gx-picked .pt{color:#9dc4ea}
+        html[data-theme="dark"] .gx-picked .pt .tip{color:#9aa7bd}
+        html[data-theme="dark"] .gx-picked .chip{background:#22304a;border-color:#3a4a68;color:#cfe1f5}
+        html[data-theme="dark"] .gx-picked .chip .dp{color:#9aa7bd}
+        html[data-theme="dark"] .gx-picked .chip .rm{color:#8fb4ff}
+        /* V1.59c：深色下补齐遗漏的白底元素（权限说明条 / 添加·删除按钮 / 徽章 / 姓名列 / 确认弹窗） */
+        html[data-theme="dark"] .au-role-help{background:#1c2a44;border-color:#31415f}
+        html[data-theme="dark"] .au-role-help > summary{color:#9dc4ea}
+        html[data-theme="dark"] .au-role-help-body th{background:#243350;color:#cfe1f5}
+        html[data-theme="dark"] .au-role-help-body td{color:#c6d2e6}
+        html[data-theme="dark"] .gx-add{background:#22304a;border-color:#3a4a68;color:#8fb4ff}
+        html[data-theme="dark"] .gx-del{background:#2a1b22;border-color:#5b2a35;color:#f87171}
+        html[data-theme="dark"] .gx-badge{background:#223352;color:#9dc0ff}
+        html[data-theme="dark"] #userTable th.sticky-name,html[data-theme="dark"] #userTable td.sticky-name{background:#1b2436;box-shadow:inset -1px 0 0 #2a3752}
+        html[data-theme="dark"] #userTable tbody tr:hover td.sticky-name{background:#22304a}
+        html[data-theme="dark"] #uiConfirmBox > div{background:#1b2436 !important}
+        html[data-theme="dark"] #uiConfirmMsg{color:#e6edf7 !important}
+        /* V1.59c：手机端标题居中一行，操作按钮第二行右对齐 */
+        @media (max-width: 575.98px){
+            .pg-top { display: block !important; }
+            .pg-top .pg-title { text-align: center; margin-bottom: 8px !important; }
+            .pg-top .pg-title.d-flex, .pg-top .pg-title.d-inline-flex { justify-content: center; }
+            .pg-top .pg-ctrl { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container-fluid py-3 px-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pg-top">
+        <h4 class="mb-0 pg-title">用户管理
+            <span class="badge-soft ms-2"><span class="dot"></span>{{ '安全业务用户' if biz == 'safety' else '调试业务用户' }}</span>
+        </h4>
+        <div class="d-flex align-items-center gap-2 pg-ctrl">
+            <span class="text-muted small">{{ user_name }}</span>
+            <a href="/admin/login_logs" class="btn btn-outline-primary btn-sm">登录日志</a>
+            {# V1.5.3：两块看板的用户各自独立，不做切换——从对应系统的「用户管理」入口进来即可 #}
+            <a href="{{ '/safety' if biz == 'safety' else '/' }}" class="btn btn-outline-secondary btn-sm">返回看板</a>
+        </div>
+    </div>
+
+    {# ===== V1.16.30（用户要求）：在线管理 / 换人审批并进本页，做成三个标签页 =====
+       为什么合并：原来「在线管理」「换人审批」是门户里两个独立入口，用户反馈"打不开"
+       （一个因为 online_guard 没开看起来是空的，一个因为管理权门槛被弹框拦掉）。
+       合并到「用户管理」之后：① 只有一个入口要记；② 权限门禁天然一致（都是该档超管）；
+       ③ V1.46：顶栏「添加账号」已下线，开通统一走本页下方的组织架构名单授权。
+       原来的 /online 与 /admin/idreq 页面**保留不动**，老链接、收藏夹都还能用。 #}
+    {# V1.48-s2：用户管理说明精简（删顶部开通说明 / 权限说明卡片 / 各卡片长解释） #}
+    <div class="au-tabs mb-3">
+        <a class="au-tab {{ 'active' if tab != 'online' and tab != 'idreq' }}"
+           href="/admin/users?biz={{ biz }}&tab=users">用户名单</a>
+        <a class="au-tab {{ 'active' if tab == 'online' }}"
+           href="/admin/users?biz={{ biz }}&tab=online">在线管理</a>
+        <a class="au-tab {{ 'active' if tab == 'idreq' }}"
+           href="/admin/users?biz={{ biz }}&tab=idreq">换人审批</a>
+    </div>
+
+    {# ---------- 标签 1：在线管理 ---------- #}
+    {% if tab == 'online' %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <b style="font-size:14px">当前在线（{{ '安全' if biz == 'safety' else '调试' }}业务）</b>
+                <span class="gx-badge">{{ online_rows|length }} 人</span>
+            </div>
+            {% if not online_guard %}
+            <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:13px">
+                <b>在线管控未开启</b>（config.json 的 <code>online_guard = false</code>）。
+                现在看不出谁在线，也没法强制退出 —— 需要真正用起来时在 config.json 里打开这个开关。
+            </div>
+            {% endif %}
+            {% if online_others %}
+            <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:13px">
+                <b>你这个账号在别处已经开着：</b>{{ online_others.name or '（另一端）' }}，
+                {{ (online_others.created_at or '')[-8:] }} 起，最近活动 {{ (online_others.last_seen or '')[-8:] }}
+                {% if online_others.ip %}（IP {{ online_others.ip }}）{% endif %}
+                <form method="post" action="/online/kick" class="d-inline ms-2">
+                    <input type="hidden" name="phone" value="{{ online_others.phone or '' }}">
+                    <input type="hidden" name="takeover" value="1">
+                    <input type="hidden" name="biz" value="{{ biz }}">
+                    <input type="hidden" name="back" value="/admin/users?biz={{ biz }}&tab=online">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">顶替并继续使用</button>
+                </form>
+            </div>
+            {% endif %}
+            {% if not online_rows %}
+            <div class="text-muted py-3" style="font-size:13px">
+                现在没有人在用（超过 {{ online_idle_min }} 分钟没动的不算在线）。
+            </div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead class="table-dark text-center"><tr>
+                        <th>姓名</th><th>手机号</th><th>设备</th><th>最近活动</th>
+                        {% if online_can %}<th>操作</th>{% endif %}
+                    </tr></thead>
+                    <tbody>
+                        {% for r in online_rows %}
+                        <tr>
+                            <td><b>{{ r.name }}</b>{% if r.is_me %} <span class="badge role-badge-user">是你</span>{% endif %}</td>
+                            <td class="text-nowrap">{{ r.phone_show }}</td>
+                            <td class="text-nowrap">{{ r.ua }}<div class="text-muted" style="font-size:12px">IP {{ r.ip or '-' }}</div></td>
+                            <td class="text-nowrap">{{ (r.seen or '')[-8:] or '-' }}</td>
+                            {% if online_can %}
+                            <td class="text-center">
+                                {% if r.is_me %}
+                                <span class="text-muted" style="font-size:12px">当前这一端</span>
+                                {% else %}
+                                {#
+      🔴 V1.16.30：二次确认**不能**写成 `onsubmit="return uiConfirm(...)"`
+      （它返回 Promise，对象永远为真值 ⇒ 表单直接提交、确认框等于没用）。
+      改成 data-confirm 属性 + 提交拦截函数 auConfirmSubmit。
+      也不用原生 confirm() —— 微信内置浏览器会静默拦截它（点了没反应）。
+    #}
+                                <form method="post" action="/online/kick" style="display:inline">
+                                    <input type="hidden" name="phone" value="{{ r.phone }}">
+                                    <input type="hidden" name="tok" value="{{ r.tok }}">
+                                    <input type="hidden" name="biz" value="{{ biz }}">
+                                    <input type="hidden" name="back" value="/admin/users?biz={{ biz }}&tab=online">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit"
+                                            data-confirm="确定把 {{ r.name }} 强制退出？&#10;TA 下一次操作就会被请出去。">强制退出</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ---------- 标签 2：换人审批 ---------- #}
+    {% elif tab == 'idreq' %}
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <b style="font-size:14px">换人申请审批（{{ '安全' if biz == 'safety' else '调试' }}业务）</b>
+                <span class="gx-badge">{{ idreq_rows|length }} 条</span>
+            </div>
+            <div class="text-muted" style="font-size:12px;margin-bottom:10px">
+                代操作需要换人时，申请人会在这里提单。
+                <b>你点「批准」之后，申请人还要自己点一次「用新身份」才真正切换</b>
+                —— 管理员只是放行，不是替他改身份。
+            </div>
+            {% if not idreq_rows %}
+            <div class="text-muted py-3" style="font-size:13px">现在没有申请单。</div>
+            {% else %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0">
+                    <thead class="table-dark text-center"><tr>
+                        <th>单号</th><th>申请人</th><th>要切成</th><th>理由</th><th>状态</th><th>操作</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in idreq_rows %}
+                        <tr>
+                            <td class="text-nowrap">#{{ r.id }}<div class="text-muted" style="font-size:12px">{{ (r.created_at or '')[5:16] }}</div></td>
+                            <td class="text-nowrap">{{ r.from_name or '?' }}<div class="text-muted" style="font-size:12px">{{ r.from_phone or '' }}</div></td>
+                            <td class="text-nowrap">{{ r.to_name or '?' }}<div class="text-muted" style="font-size:12px">{{ r.to_phone or '' }}</div></td>
+                            <td style="font-size:13px">{{ (r.reason or '')[:80] }}</td>
+                            <td class="text-center text-nowrap">
+                                {% if r.status == 'pending' %}<span class="badge status-pending">待审批</span>
+                                {% elif r.status == 'approved' %}<span class="badge status-approved">已批准</span>
+                                {% elif r.status == 'rejected' %}<span class="badge status-rejected">已驳回</span>
+                                {% else %}<span class="badge status-approved">已生效</span>{% endif %}
+                                {% if r.approver %}<div class="text-muted" style="font-size:12px">{{ r.approver }}</div>{% endif %}
+                                {% if r.approver_note %}<div class="text-muted" style="font-size:12px">批注：{{ r.approver_note }}</div>{% endif %}
+                            </td>
+                            <td class="text-center text-nowrap">
+                                {% if r.status == 'pending' %}
+                                <form method="post" action="/admin/idreq/handle" style="display:inline">
+                                    <input type="hidden" name="rid" value="{{ r.id }}">
+                                    <input type="hidden" name="ok" value="1">
+                                    {# 必须带 biz：处理路由按 request.form['biz'] 判权限 #}
+                                    <input type="hidden" name="biz" value="{{ biz }}">
+                                    <input type="hidden" name="back" value="/admin/users?biz={{ biz }}&tab=idreq">
+                                    <button class="btn btn-primary btn-sm" type="submit">批准</button>
+                                </form>
+                                <form method="post" action="/admin/idreq/handle" style="display:inline">
+                                    <input type="hidden" name="rid" value="{{ r.id }}">
+                                    <input type="hidden" name="ok" value="0">
+                                    <input type="hidden" name="biz" value="{{ biz }}">
+                                    <input type="hidden" name="back" value="/admin/users?biz={{ biz }}&tab=idreq">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit"
+                                            data-confirm="确定驳回这条换人申请？&#10;驳回后申请人身份不变。">驳回</button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted" style="font-size:12px">已处理</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {# ---------- 标签 3（默认）：用户名单与权限配置（原页面全部内容） ---------- #}
+    {% if tab != 'online' and tab != 'idreq' %}
+
+    {# ===== V1.48-s3：权限说明 —— 每个等级能干啥（默认收起） ===== #}
+    <details class="au-role-help">
+        <summary>权限说明 · 每个等级能做什么</summary>
+        <div class="au-role-help-body">
+            <table class="table table-bordered table-sm align-middle">
+                <thead><tr><th>等级</th><th>能做什么</th></tr></thead>
+                <tbody>
+                <tr>
+                    <td><b>超管</b></td>
+                    <td>全部：建 / 改名 / 删看板、改默认责任人、类别与阈值配置、名单授权、用户与在线管理、换人审批、账号管理、审批处罚与亮点。</td>
+                </tr>
+                {% if biz == 'safety' %}
+                <tr>
+                    <td><b>审核人</b></td>
+                    <td>审批违章处罚、审核亮点 / 问题；也能登记上报、整改反馈、查看看板。进不了用户管理。</td>
+                </tr>
+                <tr>
+                    <td><b>普通用户</b></td>
+                    <td>登记上报、整改反馈、提交亮点、查看看板。不能审批、不能改配置、不能进用户管理。</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td><b>调试上级责任人</b></td>
+                    <td>发起 / 闭环 / 删自己的记录，建改看板；能进用户管理页，但看不到也改不了超管名单。</td>
+                </tr>
+                <tr>
+                    <td><b>调试责任人</b></td>
+                    <td>登记 / 发起、整改反馈、查看看板。不能审批、不能进用户管理。</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td><b>未认证 / 未识别</b></td>
+                    <td>只看得到入口引导页，不能登记、不能管理、不能导出。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </details>
+
+
+
+
+        {# ===== V1.16.16：超管名单（两个业务档各自一份，互不影响）=====
+             王平平是固定超管，两个看板都由他在本页「选科室」或「选人」添加超管；
+             加进名单的人打开系统即按超管渲染（不建账号、不写业务库、保存后即时生效）。
+             V1.16.16：只有超管本人能看到 / 编辑这块 —— 调试档的「调试上级责任人」也进得来
+             这一页，但不该看见超管名单，更不能把自己加成超管。 #}
+        {% if can_admin %}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="gx-hd admin"><i></i>超管</span>
+                    <span class="gx-badge">{{ admin_count }} 人</span>
+                </div>
+                <div id="gxAdminDeptList"></div>
+                <div id="gxAdminPeopleList"></div>
+                <div class="gx-actions">
+                    <button class="gx-add" onclick="gxOpenPicker('dept','admin')">＋ 添加部门 / 科室</button>
+                    <button class="gx-add" onclick="gxOpenPicker('person','admin')">＋ 添加人员</button>
+                </div>
+                <div class="gx-save-row">
+                    <button class="btn btn-primary btn-sm" id="gxAdminSaveBtn" onclick="gxSave(this)">保存并生效</button>
+                </div>
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-muted" style="font-size:12px">
+                        <b id="gxAdminCnt">{{ admin_count }}</b> 人 · 缓存 {{ org_saved_at or '—' }} · <a
+                        href="javascript:;" onclick="gxRefreshOrg()">重新拉取</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if biz == 'safety' %}
+        {# ===== V1.39：安全档「普通用户」名单（超管按部门 / 人员批量开通）===== #}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="gx-hd user"><i></i>普通用户</span>
+                    <span class="gx-badge">{{ user_count }} 人</span>
+                </div>
+                <div id="gxUserDeptList"></div>
+                <div id="gxUserPeopleList"></div>
+                <div class="gx-actions">
+                    <button class="gx-add" onclick="gxOpenPicker('dept','user')">＋ 添加部门 / 科室</button>
+                    <button class="gx-add" onclick="gxOpenPicker('person','user')">＋ 添加人员</button>
+                </div>
+                <div class="gx-save-row">
+                    <button class="btn btn-primary btn-sm" onclick="gxSave(this)">保存并生效</button>
+                </div>
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-muted" style="font-size:12px">
+                        <b id="gxUserCnt">{{ user_count }}</b> 人 · 缓存 {{ org_saved_at or '—' }} · <a
+                        href="javascript:;" onclick="gxRefreshOrg()">重新拉取</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <!-- ===== V1.15：审核权（原「鉴权设置」页并入本页） ===== -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="gx-hd review"><i></i>审核人</span>
+                    <span class="gx-badge">{{ review_count }} 人</span>
+                </div>
+                <div class="text-muted" style="font-size:12px;margin:2px 0 8px">
+                    可审批违章处罚、审核亮点 / 问题。
+                </div>
+                <div id="gxDeptList"></div>
+                <div id="gxPeopleList"></div>
+                <div class="gx-actions">
+                    <button class="gx-add" onclick="gxOpenPicker('dept','review')">＋ 添加部门 / 科室</button>
+                    <button class="gx-add" onclick="gxOpenPicker('person','review')">＋ 添加人员</button>
+                </div>
+                <div class="gx-save-row">
+                    <button class="btn btn-primary btn-sm" id="gxSaveBtn" onclick="gxSave()">保存并生效</button>
+                </div>
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-muted" style="font-size:12px">
+                        <b id="gxCnt">{{ review_count }}</b> 人 · 缓存 {{ org_saved_at or '—' }} · <a
+                        href="javascript:;" onclick="gxRefreshOrg()">重新拉取</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        {# V1.16.2：调试业务不要「超管 / 审核人」，只留「调试上级责任人」名单 #}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="gx-hd sup"><i></i>调试上级责任人</span>
+                    <span class="gx-badge">{{ sup_count }} 人</span>
+                </div>
+                <div id="gxSupDeptList"></div>
+                <div id="gxSupPeopleList"></div>
+                <div class="gx-actions">
+                    <button class="gx-add" onclick="gxOpenPicker('dept','sup')">＋ 添加部门 / 科室</button>
+                    <button class="gx-add" onclick="gxOpenPicker('person','sup')">＋ 添加人员</button>
+                </div>
+                <div class="gx-save-row">
+                    <button class="btn btn-primary btn-sm" id="gxSaveBtn" onclick="gxSave()">保存并生效</button>
+                </div>
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-muted" style="font-size:12px">
+                        <b id="gxSupCnt">{{ sup_count }}</b> 人 · 缓存 {{ org_saved_at or '—' }} · <a
+                        href="javascript:;" onclick="gxRefreshOrg()">重新拉取</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        {# ===== V1.16.17：调试档第三份名单「调试责任人」（与另外两份一样支持部门 / 个人）===== #}
+        <div class="card shadow-sm mb-3">
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="gx-hd user"><i></i>调试责任人</span>
+                    <span class="gx-badge">{{ user_count }} 人</span>
+                </div>
+                <div id="gxUserDeptList"></div>
+                <div id="gxUserPeopleList"></div>
+                <div class="gx-actions">
+                    <button class="gx-add" onclick="gxOpenPicker('dept','user')">＋ 添加部门 / 科室</button>
+                    <button class="gx-add" onclick="gxOpenPicker('person','user')">＋ 添加人员</button>
+                </div>
+                <div class="gx-save-row">
+                    <button class="btn btn-primary btn-sm" onclick="gxSave(this)">保存并生效</button>
+                </div>
+                <div class="mt-3 d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-muted" style="font-size:12px">
+                        <b id="gxUserCnt">{{ user_count }}</b> 人 · 缓存 {{ org_saved_at or '—' }} · <a
+                        href="javascript:;" onclick="gxRefreshOrg()">重新拉取</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0 p-md-3">
+            <div class="p-2 p-md-0 mb-2">
+                <input type="text" id="userSearch" class="form-control" placeholder="输入姓名或手机号筛选用户…" oninput="filterUsers()">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle mb-0" id="userTable">
+                    <thead class="table-dark text-center">
+                        <tr>
+                            <th class="sticky-name">姓名</th>
+                            <th>手机号</th>
+                            <th>工号</th>
+                            <th>角色</th>
+                            <th>状态</th>
+                            <th>注册时间</th>
+                            <th>审核人</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr class="text-center" data-name="{{ u.name }}" data-phone="{{ u.phone }}">
+                            <td class="fw-bold sticky-name">{{ u.name }}</td>
+                            <td>{{ u.phone }}</td>
+                            <td>{% if u.emp_no %}{{ u.emp_no }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                            <td>
+                                {% if u.grant_src %}
+                                    <span class="badge role-badge-super">超管</span>
+                                    {% if u.grant_src == 'fixed' %}<div class="row-sub">系统固定</div>
+                                    {% elif u.grant_src == 'dept' %}<div class="row-sub">部门授权</div>
+                                    {% elif u.grant_src == 'person' %}<div class="row-sub">名单授权</div>
+                                    {% elif u.grant_src == 'role' %}<div class="row-sub">账号角色</div>
+                                    {% endif %}
+                                {% elif biz == 'safety' %}
+                                    <span class="badge role-badge-user">普通用户</span>
+                                    {% if u.is_reviewer %}<div class="row-sub">审核人</div>{% endif %}
+                                {% elif u.role_view == 'debug_sup' %}
+                                    <span class="badge role-badge-sup">调试上级责任人</span>
+                                    <div class="row-sub">{{ '部门授权' if u.role_src == 'dept' else ('账号角色' if u.role_src == 'role' else '名单授权') }}</div>
+                                {% else %}
+                                    <span class="badge role-badge-user">调试责任人</span>
+                                    {% if u.role_view %}<div class="row-sub">{{ '部门授权' if u.role_src == 'dept' else ('账号角色' if u.role_src == 'role' else '名单授权') }}</div>{% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.status == 'pending' %}
+                                    <span class="badge status-pending">待审核</span>
+                                {% elif u.status == 'approved' %}
+                                    <span class="badge status-approved">已通过</span>
+                                {% else %}
+                                    <span class="badge status-rejected">已拒绝</span>
+                                {% endif %}
+                            </td>
+                            <td><small>{{ u.created_at or '—' }}</small></td>
+                            <td><small>{{ u.approved_by or '—' }}</small></td>
+                            {# V1.16.36：ops-cell 让这一列按钮可换行，不再把表格撑破屏幕（见文件头 CSS 注释） #}
+                            <td class="ops-cell">
+                                {# V1.16.37：手机端只显示这个入口，点开从底部弹出全部动作；桌面端它被隐藏 #}
+                                <button type="button" class="ops-more" onclick="openOpsSheet(this)">管理</button>
+                                <div class="ops-full">
+                                {% if u.status == 'pending' %}
+                                    <button class="btn btn-sm btn-success mb-1" onclick="approveUser('{{ u.phone }}', 'approve')">通过</button>
+                                    <button class="btn btn-sm btn-outline-danger mb-1" onclick="approveUser('{{ u.phone }}', 'reject')">拒绝</button>
+                                {% endif %}
+                                {# V1.16.15：超管身份就在这张表上直接管理（即时生效，不用再去上面点保存） #}
+                                {# V1.16.16：两个业务档都能在这里设 / 取消超管；但只有超管看得到这两个按钮 #}
+                                {% if can_admin %}
+                                {# 🔴 V1.16.38（用户要求「把设为超管这个按钮删掉，本来旁边那个框框里就可以了」）：
+                                   本页上方就有一张「超管」名单卡片（「＋ 添加部门/科室」「＋ 添加人员」+「保存并生效」），
+                                   那条路与这个按钮**写的是同一份超管名单**、一样即时生效 ⇒ 表格里再放一个纯属重复。
+                                   现在只保留：固定超管（王平平，不可取消）／取消超管（快捷移除）。
+                                   ⚠️ 表格里那个角色下拉是**调试档专用**（调试责任人 / 调试上级责任人），
+                                   里头没有「超管」选项 —— 加超管一律走上方名单卡片。 #}
+                                {% if u.grant_src == 'fixed' %}
+                                    <button class="btn btn-sm btn-outline-secondary mb-1" disabled title="系统固定超管，不可取消">固定超管</button>
+                                {% elif u.grant_src %}
+                                    <button class="btn btn-sm btn-warning mb-1" onclick="unsetSuper('{{ u.phone }}', '{{ u.name }}')">取消超管</button>
+                                {% endif %}
+                                {# V1.16.17：安全档 → 逐人给 / 取消审核权 #}
+                                {% if biz == 'safety' %}
+                                    {% if u.is_reviewer %}
+                                    <button class="btn btn-sm btn-warning mb-1" onclick="setGrant('{{ u.phone }}','{{ u.name }}','review',false)">取消审核人</button>
+                                    {% else %}
+                                    <button class="btn btn-sm btn-outline-success mb-1" onclick="setGrant('{{ u.phone }}','{{ u.name }}','review',true)">设为审核人</button>
+                                    {% endif %}
+                                {% endif %}
+                                {% endif %}
+                                {# V1.16.17：调试档 → 逐人在「调试责任人 / 调试上级责任人」之间改（即时生效） #}
+                                {% if can_admin and biz != 'safety' and not u.grant_src %}
+                                <select class="form-select form-select-sm role-sel mb-1 d-inline-block"
+                                        title="改这个人的角色（即时生效）"
+                                        onchange="setGrant('{{ u.phone }}','{{ u.name }}',this.value,true)">
+                                    {# 🔴 V1.16.36：长标签「调试上级责任人」在手机窄列里会被裁成
+                                       「调试责任人」—— 看着像普通责任人、误判权限。
+                                       两套文案：opt-long 桌面用，opt-short 由 JS 在手机端换上。 #}
+                                    <option value="user" class="opt-long"{% if u.role_view != 'debug_sup' %} selected{% endif %}>调试责任人</option>
+                                    <option value="sup" class="opt-long"{% if u.role_view == 'debug_sup' %} selected{% endif %}>调试上级责任人</option>
+                                    <option value="user" class="opt-short"{% if u.role_view != 'debug_sup' %} selected{% endif %}>责任人</option>
+                                    <option value="sup" class="opt-short"{% if u.role_view == 'debug_sup' %} selected{% endif %}>上级</option>
+                                </select>
+                                {% endif %}
+                                {# V1.14.2：不再在这里改角色 —— 账号一律「普通用户」，超管用上面的「设为超管」 #}
+                                <button class="btn btn-sm btn-outline-info mb-1" onclick="syncEmpNo('{{ u.phone }}', '{{ u.name }}')">匹配工号</button>
+                                <button class="btn btn-sm btn-outline-secondary mb-1" onclick="resetPassword('{{ u.phone }}', '{{ u.name }}')">重置密码</button>
+                                {# V1.16.17c：系统固定超管（王平平）不给「删除」——否则一键把自己账号删了，界面再无入口补回 #}
+                                {% if u.grant_src != 'fixed' %}
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteUser('{{ u.phone }}', '{{ u.name }}')">删除</button>
+                                {% else %}
+                                <button class="btn btn-sm btn-outline-danger" disabled title="系统固定超管，不可删除">删除</button>
+                                {% endif %}
+                                </div>{# /.ops-full —— V1.16.37 手机端抽屉的搬运源 #}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {# V1.16.15：在超管名单里、但还没建账号的人 → 同样列在表里，方便直接取消超管 #}
+                        {% if can_admin %}
+                        {% for p in grant_extra %}
+                        <tr class="text-center" data-name="{{ p.name }}" data-phone="{{ p.phone }}">
+                            <td class="fw-bold sticky-name">{{ p.name or '—' }}</td>
+                            <td>{{ p.phone or '—' }}</td>
+                            <td><span class="text-muted">—</span></td>
+                            <td>
+                                {% if p.kind == 'sup' %}
+                                <span class="badge role-badge-sup">调试上级责任人</span>
+                                <div class="row-sub">名单授权</div>
+                                {% elif p.kind == 'user' %}
+                                <span class="badge role-badge-user">{{ '普通用户' if biz == 'safety' else '调试责任人' }}</span>
+                                <div class="row-sub">名单授权</div>
+                                {% else %}
+                                <span class="badge role-badge-super">超管</span>
+                                <div class="row-sub">{{ '系统固定' if p.fixed else ('部门授权' if p.from_dept else '名单授权') }}</div>
+                                {% endif %}
+                            </td>
+                            <td>{% if p.fixed %}<span class="badge bg-success">两个系统通用</span>{% else %}<span class="badge bg-secondary">未建账号</span>{% endif %}</td>
+                            <td><small>—</small></td>
+                            <td><small>—</small></td>
+                            {# V1.16.36：同上，名单授权行的操作列也允许按钮换行 #}
+                            {# V1.16.37：这一行永远只有一个动作 ⇒ 加 ops-single，手机端不折叠，
+                               免得点两下才做成一件事 #}
+                            <td class="ops-cell ops-single">
+                                <div class="ops-full">
+                                {% if p.fixed %}
+                                <button class="btn btn-sm btn-outline-secondary mb-1" disabled title="系统固定超管，不可取消">固定超管</button>
+                                {% elif p.kind == 'sup' %}
+                                <button class="btn btn-sm btn-warning mb-1" onclick="setGrant('{{ p.phone }}','{{ p.name }}','sup',false)">取消上级</button>
+                                {% elif p.kind == 'user' %}
+                                <button class="btn btn-sm btn-warning mb-1" onclick="setGrant('{{ p.phone }}','{{ p.name }}','user',false)">{{ '取消普通用户' if biz == 'safety' else '取消调试责任人' }}</button>
+                                {% else %}
+                                <button class="btn btn-sm btn-warning mb-1" onclick="unsetSuper('{{ p.phone }}', '{{ p.name }}')">取消超管</button>
+                                {% endif %}
+                                </div>{# /.ops-full #}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                        {% if not users and not (can_admin and grant_extra) %}
+                        <tr><td colspan="8" class="text-center text-muted py-4">暂无注册用户</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{# ---------- 上面是「用户名单」标签的全部内容；V1.16.30 的另两个标签到此结束 ---------- #}
+    {% endif %}
+
+{# V1.46：添加账号模态框已整体移除（后端 /admin/add_user 也已拒绝） #}
+
+<!-- 自定义确认弹层：不依赖原生 confirm（微信内置浏览器/部分 WebView 会静默拦截 confirm 并返回 false，导致按钮"点了没反应"） -->
+<div id="uiConfirmBox" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;max-width:340px;width:100%;padding:20px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);">
+        <div id="uiConfirmMsg" style="font-size:15px;line-height:1.6;color:#212529;white-space:pre-wrap;word-break:break-all;"></div>
+        <div style="display:flex;gap:10px;margin-top:18px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="_uiConfirmAnswer(false)">取消</button>
+            <button type="button" class="btn btn-primary btn-sm flex-fill" onclick="_uiConfirmAnswer(true)">确定</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+    // V1.5.3：业务档——本页只管理该业务档的账号（两个看板用户不互通）
+    const BIZ = "{{ biz or 'debug' }}";
+let _uiConfirmResolve = null;
+function uiConfirm(msg) {
+    return new Promise(resolve => {
+        document.getElementById('uiConfirmMsg').textContent = msg;
+        const box = document.getElementById('uiConfirmBox');
+        box.style.display = 'flex';
+        _uiConfirmResolve = resolve;
+    });
+}
+function _uiConfirmAnswer(ok) {
+    const box = document.getElementById('uiConfirmBox');
+    if (box) box.style.display = 'none';
+    if (_uiConfirmResolve) { const r = _uiConfirmResolve; _uiConfirmResolve = null; r(ok); }
+}
+// ===== V1.16.30：带 data-confirm 的表单提交拦截 =====
+// 为什么要单独写这个：`uiConfirm()` 返回 Promise，**不能**用在
+// `onsubmit="return uiConfirm(...)"` —— return 拿到的是 Promise 对象（永远真值），
+// 表单会直接提交，确认框等于白做；而 `onsubmit="return await ..."` 在传统提交里
+// 根本没法阻塞。原生 confirm() 在微信内置浏览器又会被静默拦截。
+// 所以：捕获 submit → 先弹层 → 确认后用 requestSubmit() 真正提交（避免再次触发拦截）。
+(function () {
+  document.addEventListener('submit', function (e) {
+    var btn = e.submitter || (e.target.querySelector ? e.target.querySelector('[data-confirm]') : null);
+    var msg = btn && btn.getAttribute ? btn.getAttribute('data-confirm') : null;
+    if (!msg) return;                      // 没有 data-confirm ⇒ 放行
+    e.preventDefault();                    // 先拦住
+    uiConfirm(msg).then(function (ok) {
+      if (!ok) return;
+      btn.removeAttribute('data-confirm');  // 摘掉标记，避免再次触发拦截
+      try { e.target.requestSubmit(); }    // 现代浏览器
+      catch (err) { e.target.submit(); }    // 老浏览器兜底
+    });
+  }, true);
+})();
+function filterUsers() {
+    const kw = document.getElementById('userSearch').value.trim().toLowerCase();
+    document.querySelectorAll('#userTable tbody tr').forEach(tr => {
+        if (!tr.dataset.name) return;  // 空行（如"暂无注册用户"）不处理
+        const name = (tr.dataset.name || '').toLowerCase();
+        const phone = (tr.dataset.phone || '').toLowerCase();
+        tr.style.display = (!kw || name.includes(kw) || phone.includes(kw)) ? '' : 'none';
+    });
+}
+
+/* 🔴 V1.16.36：手机端把角色下拉的长标签换成短标签（「上级」/「责任人」）。
+   为什么必须用 JS 而不是 CSS display：各浏览器对 display:none 的 <option>
+   渲染不一致（Safari 会连选中项一起不显示）。
+   做法：窄屏时把 opt-long 从 select 里删掉、保留 opt-short；宽屏反之。
+   下拉的 value 两种文案都一样（user / sup），setGrant 不受影响。 */
+function v1636ShortRoleLabels() {
+    const narrow = window.matchMedia('(max-width: 575.98px)').matches;
+    document.querySelectorAll('#userTable .role-sel').forEach(sel => {
+        const drop = narrow ? '.opt-long' : '.opt-short';
+        const cur = sel.value;
+        // 首次进来时把原始 HTML 存一份；每次都从原始重建，再删掉不要的那套，
+        // 这样窄屏↔宽屏来回切不会把 option 删光。
+        if (!sel.dataset.srcHtml) sel.dataset.srcHtml = sel.innerHTML;
+        sel.innerHTML = sel.dataset.srcHtml;
+        Array.from(sel.querySelectorAll(drop)).forEach(o => o.remove());
+        if (cur) sel.value = cur;
+    });
+}
+window.addEventListener('resize', v1636ShortRoleLabels);
+document.addEventListener('DOMContentLoaded', v1636ShortRoleLabels);
+if (document.readyState !== 'loading') v1636ShortRoleLabels();
+
+async function approveUser(phone, action) {
+    if (action === 'approve' && !(await uiConfirm('确认通过 ' + phone + ' 的注册申请？'))) return;
+    if (action === 'reject' && !(await uiConfirm('确认拒绝 ' + phone + ' 的注册申请？'))) return;
+    const resp = await fetch('/admin/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, action, biz: BIZ })
+    });
+    const data = await resp.json();
+    alert(data.msg || (data.ok ? '操作成功' : '操作失败'));
+    if (data.ok) location.reload();
+}
+
+async function setRole(phone, role) {
+    const labels = { 'super_admin': '超管', 'debug_sup': '普通用户', 'debug_user': '普通用户' };
+    if (!(await uiConfirm('确认将 ' + phone + ' 的角色改为「' + labels[role] + '」？'))) return;
+    const resp = await fetch('/admin/set_role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, role, biz: BIZ })
+    });
+    const data = await resp.json();
+    if (data.ok) { alert(data.msg || '角色已更新'); location.reload(); }
+    else alert(data.msg || '操作失败');
+}
+
+async function deleteUser(phone, name) {
+    if (!(await uiConfirm('确认删除用户 ' + name + '（' + phone + '）？此操作不可撤销！\n（若此人是超管，会同时取消其超管身份）'))) return;
+    const resp = await fetch('/admin/delete_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, biz: BIZ })
+    });
+    const data = await resp.json();
+    alert(data.msg || (data.ok ? '删除成功' : '删除失败'));
+    if (data.ok) location.reload();
+}
+
+/* ===== V1.16.15：超管名单逐人管理（表格里只留「取消超管」；
+   「设为超管」由本页上方的「超管」名单卡片承担 —— 同一份名单、同样即时生效，
+   表格里重复放一个按钮已被 V1.16.38 删除） ===== */
+async function unsetSuper(phone, name) {
+    if (!(await uiConfirm('取消 ' + (name || phone) + ' 的超管身份？\n取消后他会恢复为普通用户（账号不会被删除）。'))) return;
+    const resp = await fetch('/admin/grant_remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, biz: BIZ })
+    });
+    const data = await resp.json();
+    if (data.ok) { alert(data.msg || '已取消超管'); location.reload(); }
+    else alert(data.msg || '操作失败');
+}
+
+/* ===== V1.16.17：逐人改角色（统一走名单，即时生效） ===== */
+async function setGrant(phone, name, role, on) {
+    const labels = { admin: '超管', sup: '调试上级责任人',
+                     user: (BIZ === 'safety' ? '普通用户' : '调试责任人'), review: '审核人' };
+    const who = labels[role] || '名单';
+    const ask = on
+        ? ('把 ' + (name || phone) + '（' + phone + '）设为「' + who + '」？\n即时生效，不建账号、不影响他的登录。')
+        : ('取消 ' + (name || phone) + '（' + phone + '）的「' + who + '」？\n' +
+           '如果他是由部门 / 科室授权带出来的，只会把这个人单独剔出，该部门其他人不受影响。');
+    if (!(await uiConfirm(ask))) { location.reload(); return; }
+    const _post = (r) => fetch('/admin/grant_add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, biz: BIZ, role: r })
+    }).then(function (x) { return x.json(); });
+    const _rm = (r) => fetch('/admin/grant_remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, name, biz: BIZ, role: r })
+    }).then(function (x) { return x.json(); });
+    let data;
+    if (on && (role === 'sup' || role === 'user')) {
+        // V1.16.17b：「调试上级责任人 / 调试责任人」互切时，先把另一份名单里的他清掉 ——
+        //   两份名单都写时「调试责任人」永远优先，会出现「改成上级又变回责任人」的假象。
+        const _other = (role === 'sup') ? 'user' : 'sup';
+        try { await _rm(_other); } catch (e) { }
+        data = await _post(role);
+    } else {
+        data = await fetch(on ? '/admin/grant_add' : '/admin/grant_remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, name, biz: BIZ, role: role })
+        }).then(function (x) { return x.json(); });
+    }
+    if (data.ok) { alert(data.msg || '已生效'); location.reload(); }
+    else alert(data.msg || '操作失败');
+}
+
+async function resetPassword(phone, name) {
+    if (!(await uiConfirm('确认将 ' + name + '（' + phone + '）的密码重置为 88888888？\n重置后请将新密码告知本人，建议其登录后尽快自行修改。'))) return;
+    const resp = await fetch('/admin/reset_password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, biz: BIZ })
+    });
+    const data = await resp.json();
+    alert(data.msg || (data.ok ? '重置成功' : '重置失败'));
+}
+
+/* V1.46：lookupChzName() / addUser() 已随添加账号入口一并移除 */
+
+// V1.3.1 需求4：工号不手动填写，从船海智云通讯录按手机号自动匹配
+async function syncEmpNo(phone, name) {
+    if (!(await uiConfirm('从船海智云通讯录自动匹配「' + name + '」（' + phone + '）的工号并写入账号？'))) return;
+    const resp = await fetch('/admin/sync_emp_no', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, biz: BIZ })
+    });
+    const data = await resp.json();
+    alert(data.msg || (data.ok ? '匹配成功' : '操作失败'));
+    if (data.ok) location.reload();
+}
+</script>
+
+<!-- V1.15：部门 / 人员 选择器（合并页用） -->
+<div class="gx-mask" id="gxMask">
+  <div class="gx-dlg">
+    <div class="gx-dlg-h"><b id="gxTitle">选择部门</b><button class="x" onclick="gxClosePicker()">×</button></div>
+    {# V1.16.14：已选人员 —— 固定在弹窗最上面，列表滚到哪儿都能看到选了谁 #}
+    <div class="gx-picked" id="gxPickedBar">
+      <div class="pt">已选人员 <b id="gxPickedN">0</b> 人<span class="tip">（点 × 可取消选择）</span></div>
+      <div class="chips" id="gxPickedList"></div>
+    </div>
+    <div class="gx-q"><input id="gxKw" placeholder="搜索部门或姓名，直接敲字" oninput="gxOnSearch()"></div>
+    {# V1.16.16：选人 / 选科室时能返回上一级（以前只有很细的面包屑，手机上几乎点不到） #}
+    <div class="gx-nav">
+      <button type="button" class="gx-up off" id="gxUpBtn" disabled onclick="gxGoUp()">‹ 上一级</button>
+      <span class="gx-crumbs" id="gxCrumbs"></span>
+    </div>
+    <div class="gx-b" id="gxBody"></div>
+    <div class="gx-pick" id="gxPickBar"></div>
+  </div>
+</div>
+
+<script>
+/* ===== V1.15：超管 / 审核权 名单（原「鉴权设置」页并入用户管理） ===== */
+var gxMode = 'dept';       // dept | person
+var gxBiz = {{ (biz or 'debug')|tojson }};
+var gxTarget = (gxBiz === 'safety') ? 'review' : 'sup';   // review(审核人) | admin(超管) | sup(调试上级责任人)
+var gxCur = '';
+var gxCanAdmin = {{ 'true' if can_admin else 'false' }};   // V1.16.16：能不能改超管名单（后端也拦）
+var gxCrumbs = [];          // V1.16.16：当前所在部门的面包屑（返回上一级用）
+var gxPicked = {};
+var gxDepts = {{ dept_rows|tojson }};
+var gxPeople = {{ people_rows|tojson }};
+var gxAdminDepts = {{ admin_dept_rows|tojson }};
+var gxAdminPeople = {{ admin_people_rows|tojson }};
+var gxSupDepts = {{ sup_dept_rows|tojson }};
+var gxSupPeople = {{ sup_people_rows|tojson }};
+/* V1.16.17：调试档第三份名单「调试责任人」（个人指定优先于部门授权） */
+var gxUserDepts = {{ user_dept_rows|tojson }};
+var gxUserPeople = {{ user_people_rows|tojson }};
+
+function gxToast(m) {
+  try { if (window.showToast) { window.showToast(m); return; } } catch (e) {}
+  var t = document.getElementById('gxToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'gxToast';
+    t.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:40px;background:rgba(20,30,50,.9);' +
+      'color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;z-index:1090';
+    document.body.appendChild(t);
+  }
+  t.textContent = m; t.style.display = 'block';
+  setTimeout(function () { t.style.display = 'none'; }, 2000);
+}
+function gxEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+  });
+}
+function _gxArrs(kind) {
+  if (kind === 'admin') return [gxAdminDepts, gxAdminPeople];
+  if (kind === 'sup') return [gxSupDepts, gxSupPeople];
+  if (kind === 'user') return [gxUserDepts, gxUserPeople];
+  return [gxDepts, gxPeople];            // review（审核人）
+}
+function gxD() { return _gxArrs(gxTarget)[0]; }
+function gxP() { return _gxArrs(gxTarget)[1]; }
+var GX_WHO = { admin: '超管', sup: '调试上级责任人',
+               user: (gxBiz === 'safety' ? '普通用户' : '调试责任人'), review: '审核人' };
+function gxWho() { return GX_WHO[gxTarget] || '审核人'; }
+
+function gxRenderLists() {
+  function deptBox(boxId, list, kind) {
+    var h = '';
+    list.forEach(function (d, i) {
+      h += '<div class="gx-row"><div class="nm"><b>' + gxEsc(d.full || d.path) + '</b>'
+         + '<small>' + (d.deep ? '含下级部门' : '仅本部门') + ' · ' + (d.count || 0) + ' 人</small></div>'
+         + '<button class="gx-del" onclick="gxRmDept(' + i + ',\'' + kind + '\')">删除</button></div>';
+    });
+    var el = document.getElementById(boxId); if (el) el.innerHTML = h;
+  }
+  function peopleBox(boxId, list, kind) {
+    var h = '';
+    list.forEach(function (p, i) {
+      h += '<div class="gx-row"><div class="nm"><b>' + gxEsc(p.name || p.phone) + '</b>'
+         + '<small>' + gxEsc(p.dept || '') + (p.phone ? ' · ' + gxEsc(p.phone) : '') + '</small></div>';
+      // V1.16.17：固定超管（王平平）在两个看板的名单里都显示，但不给删除按钮
+      if (p.fixed) h += '<span class="gx-fixed" title="系统固定超管，两个系统都有他，取消不了">固定超管</span>';
+      else h += '<button class="gx-del" onclick="gxRmPerson(' + i + ',\'' + kind + '\')">删除</button>';
+      h += '</div>';
+    });
+    var el2 = document.getElementById(boxId); if (el2) el2.innerHTML = h;
+  }
+  deptBox('gxAdminDeptList', gxAdminDepts, 'admin');
+  peopleBox('gxAdminPeopleList', gxAdminPeople, 'admin');
+  deptBox('gxDeptList', gxDepts, 'review');
+  peopleBox('gxPeopleList', gxPeople, 'review');
+  deptBox('gxSupDeptList', gxSupDepts, 'sup');
+  peopleBox('gxSupPeopleList', gxSupPeople, 'sup');
+  deptBox('gxUserDeptList', gxUserDepts, 'user');
+  peopleBox('gxUserPeopleList', gxUserPeople, 'user');
+}
+function gxRmDept(i, kind) {
+  var a = _gxArrs(kind)[0];
+  if (a[i] && a[i].fixed) { gxToast('系统固定超管，取消不了'); return; }
+  a.splice(i, 1);
+  gxRenderLists();
+}
+function gxRmPerson(i, kind) {
+  var a = _gxArrs(kind)[1];
+  if (a[i] && a[i].fixed) { gxToast('系统固定超管，取消不了'); return; }
+  a.splice(i, 1);
+  gxRenderLists();
+}
+
+function gxOpenPicker(mode, target) {
+  gxMode = mode; gxTarget = target || 'review'; gxCur = ''; gxCrumbs = []; gxPicked = {};
+  var who = gxWho();
+  document.getElementById('gxTitle').textContent =
+      (mode === 'dept') ? ('选择部门 / 科室（设为' + who + '）') : ('选择人员（设为' + who + '）');
+  document.getElementById('gxKw').value = '';
+  document.getElementById('gxMask').classList.add('on');
+  document.getElementById('gxPickBar').innerHTML = (mode === 'dept')
+    ? '<button class="ok" onclick="gxPickDeptHere()">把这个部门设为' + who + '</button>'
+    : '<button class="ok" onclick="gxPickPersons()">添加选中的人</button>';
+  gxRenderPicked();
+  gxLoadDepts('');
+}
+function gxClosePicker() { document.getElementById('gxMask').classList.remove('on'); }
+function gxRenderPicked() {
+  var bar = document.getElementById('gxPickedBar');
+  var list = document.getElementById('gxPickedList');
+  if (!bar || !list) return;
+  var keys = [];
+  for (var k in gxPicked) keys.push(k);
+  var n = document.getElementById('gxPickedN'); if (n) n.textContent = keys.length;
+  var h = '';
+  keys.forEach(function (ph) {
+    var p = gxPicked[ph] || {};
+    h += '<span class="chip"><b>' + gxEsc(p.name || ph) + '</b>'
+       + (p.dept ? '<span class="dp">' + gxEsc(p.dept) + '</span>' : '')
+       + '<button class="rm" title="取消选择" onclick="gxUnpick(\'' + ph + '\')">×</button></span>';
+  });
+  list.innerHTML = h;
+  if (gxMode === 'person' && keys.length) bar.classList.add('on'); else bar.classList.remove('on');
+  var btn = document.querySelector('#gxPickBar .ok');
+  if (btn) btn.textContent = '添加选中的人' + (keys.length ? '（' + keys.length + '）' : '');
+}
+function gxUnpick(ph) {
+  delete gxPicked[ph];
+  var kw = document.getElementById('gxKw').value.trim();
+  if (kw) gxOnSearch(); else gxLoadDepts(gxCur);
+  gxRenderPicked();
+}
+
+function gxOnSearch() {
+  var kw = document.getElementById('gxKw').value.trim();
+  if (!kw) { gxLoadDepts(gxCur); return; }
+  fetch('/api/org/search?kw=' + encodeURIComponent(kw))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var h = '';
+      (d.depts || []).forEach(function (x) {
+        var act = (gxMode === 'dept') ? ("gxPickDeptId('" + x.id + "')") : ("gxOpen('" + x.id + "')");
+        h += '<div class="gx-dept" onclick="' + act + '">'
+           + '<span class="n">' + gxEsc(x.short) + '</span>'
+           + '<span class="c">' + x.total + ' 人</span>'
+           + '<span class="go">' + (gxMode === 'dept' ? '＋' : '›') + '</span></div>';
+      });
+      (d.people || []).forEach(function (p) {
+        if (gxMode === 'dept') {
+          h += '<div class="gx-p"><span class="n">' + gxEsc(p.name) + '</span>'
+             + '<span class="d">' + gxEsc(p.dept) + '</span></div>';
+        } else {
+          // V1.16.35：搜索结果的人员行同样整行可点（与部门列表行为一致）
+          var call = "gxTogglePick('" + p.phone + "','" + gxEsc(p.name) + "','" + gxEsc(p.dept) + "')";
+          h += '<div class="gx-p' + (gxPicked[p.phone] ? ' on' : '') + '" onclick="' + call + '">'
+             + '<span class="n">' + gxEsc(p.name) + '</span>'
+             + '<span class="d">' + gxEsc(p.dept) + '</span>'
+             + '<button onclick="event.stopPropagation();' + call + '">'
+             + (gxPicked[p.phone] ? '已选' : '选择') + '</button></div>';
+        }
+      });
+      if (!h) h = '<div class="gx-empty">没找到匹配的部门或人员</div>';
+      // V1.16.16：搜索时保留上面那条「‹ 上一级 / 面包屑」，清空搜索框就回到原来那层
+      h = '<div class="gx-empty" style="padding:2px 0 4px">搜索「' + gxEsc(kw)
+        + '」的结果（清空搜索框可回到刚才的部门）</div>' + h;
+      document.getElementById('gxBody').innerHTML = h;
+    });
+}
+/* V1.16.16：进入某个部门（顺便清空搜索框，避免"搜索关键字"把导航带偏） */
+function gxOpen(parent) {
+  var kw = document.getElementById('gxKw');
+  if (kw) kw.value = '';
+  gxLoadDepts(parent || '');
+}
+/* 面包屑：全部 › 公司 › 总装二部 › …（当前部门不可点，其余可点） */
+function gxRenderCrumbs() {
+  var el = document.getElementById('gxCrumbs');
+  var h = '<a onclick="gxOpen(\'\')">全部</a>';
+  (gxCrumbs || []).forEach(function (c) {
+    h += ' › ';
+    if (c.id === gxCur) h += '<a class="cur">' + gxEsc(c.name) + '</a>';
+    else h += '<a onclick="gxOpen(\'' + c.id + '\')">' + gxEsc(c.name) + '</a>';
+  });
+  if (el) el.innerHTML = h;
+  gxUpBtn();
+}
+function gxParentOf(curId) {
+  for (var i = 0; i < (gxCrumbs || []).length; i++) {
+    if (gxCrumbs[i].id === curId) return (i > 0) ? gxCrumbs[i - 1].id : '';
+  }
+  return '';
+}
+function gxUpBtn() {
+  var b = document.getElementById('gxUpBtn');
+  if (!b) return;
+  b.disabled = !gxCur;
+  b.className = 'gx-up' + (gxCur ? '' : ' off');
+  b.textContent = gxCur ? '‹ 上一级' : '‹ 全部';
+}
+function gxGoUp() {
+  if (!gxCur) { gxOpen(''); return; }
+  // V1.16.16：crumbs[0]（公司）是根节点的隐含父级，顶层列表本身就是它的下级部门，
+  // 所以从第二层往上一步就直接回顶层 —— 否则「上一级」会先落到与顶层一模一样的
+  // 「公司」层，看着像点了没反应，再点一次才真的回去。
+  var idx = -1;
+  for (var i = 0; i < (gxCrumbs || []).length; i++) {
+    if (gxCrumbs[i].id === gxCur) { idx = i; break; }
+  }
+  if (idx <= 1) { gxOpen(''); return; }
+  gxOpen(gxCrumbs[idx - 1].id);
+}
+function gxLoadDepts(parent) {
+  gxCur = parent || '';
+  if (!gxCur) gxCrumbs = [];
+  fetch('/api/org/depts?parent=' + encodeURIComponent(parent || ''))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      gxCrumbs = d.crumbs || [];
+      gxRenderCrumbs();
+      var h = '';
+      (d.items || []).forEach(function (x) {
+        // V1.16.35：整行可点 = 主操作（选人模式=进部门；选部门模式=直接选它）；
+        // 右侧箭头固定是「进下级」，stopPropagation 防止和行点击打架 —— 以前箭头只有 15px，手机上点不中
+        var act = (gxMode === 'dept') ? ("gxPickDeptId('" + x.id + "')") : ("gxOpen('" + x.id + "')");
+        h += '<div class="gx-dept" onclick="' + act + '"><span class="n">'
+           + gxEsc(x.name) + '</span><span class="c">' + x.total + ' 人</span>'
+           + '<span class="go" title="进入该部门" onclick="event.stopPropagation();gxOpen(\''
+           + x.id + '\')">›</span></div>';
+      });
+      if (gxMode === 'person' && parent) h += '<div class="gx-empty" style="margin-top:6px">本部门人员：</div>';
+      document.getElementById('gxBody').innerHTML = h || '<div class="gx-empty">没有下级部门</div>';
+      if (gxMode === 'person' && parent) gxLoadPeople(parent);
+    });
+}
+function gxLoadPeople(deptId) {
+  fetch('/api/org/people?dept=' + encodeURIComponent(deptId) + '&limit=400')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var h = '';
+      (d.items || []).forEach(function (p) {
+        // V1.16.35：整行可点 = 选/取消这个人；「选择」按钮保留（热区已拉大），stopPropagation 防双触发
+        var call = "gxTogglePick('" + p.phone + "','" + gxEsc(p.name) + "','" + gxEsc(p.dept) + "')";
+        h += '<div class="gx-p' + (gxPicked[p.phone] ? ' on' : '') + '" onclick="' + call + '">'
+           + '<span class="n">' + gxEsc(p.name) + '</span>'
+           + '<span class="d">' + gxEsc(p.dept) + '</span>'
+           + '<button onclick="event.stopPropagation();' + call + '">'
+           + (gxPicked[p.phone] ? '已选' : '选择') + '</button></div>';
+      });
+      var box = document.getElementById('gxBody');
+      box.innerHTML = box.innerHTML + (h || '<div class="gx-empty">该部门没有直属人员</div>');
+    });
+}
+function gxTogglePick(phone, name, dept) {
+  if (gxPicked[phone]) delete gxPicked[phone];
+  else gxPicked[phone] = { name: name, phone: phone, dept: dept };
+  gxRenderPicked();                 // 顶部「已选人员」实时跟着变
+  var kw = document.getElementById('gxKw').value.trim();
+  if (kw) gxOnSearch(); else gxLoadDepts(gxCur);
+}
+function gxPickDeptId(id) {
+  fetch('/api/org/dept?id=' + encodeURIComponent(id))
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { gxToast('没找到这个部门'); return; }
+      gxAddDept(d.item);
+    });
+}
+function gxPickDeptHere() {
+  if (!gxCur) { gxToast('先点进一个部门，再点这里'); return; }
+  gxPickDeptId(gxCur);
+}
+function gxAddDept(item) {
+  var list = gxD();
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].id && list[i].id === item.id) { gxToast('这个部门已经在名单里了'); gxClosePicker(); return; }
+  }
+  list.push({ id: item.id, path: item.short, full: item.short, deep: true, count: item.total });
+  gxRenderLists(); gxClosePicker();
+  gxToast('已加入名单（' + gxWho() + '）：' + item.short);
+}
+function gxPickPersons() {
+  var list = gxP(), n = 0;
+  for (var k in gxPicked) { list.push(gxPicked[k]); n++; }
+  if (n) { gxRenderLists(); gxToast('已添加 ' + n + ' 人为' + gxWho()); }
+  gxClosePicker();
+}
+function gxSave(btnEl) {
+  // V1.16.16：超管 / 审核人 / 调试上级责任人三份名单一起提交（各带自己的键），
+  //           后端按 biz 落到对应配置文件；下方表格里的「设为超管 / 取消超管」是即时生效的短路。
+  var btn = btnEl || document.getElementById('gxSaveBtn') || document.getElementById('gxAdminSaveBtn');
+  if (!btn) return;
+  var _old = btn.textContent;
+  btn.disabled = true; btn.textContent = '保存中…';
+  // V1.16.16：admin_* 只有超管才发 —— 调试档的调试上级责任人也在这一页，
+  // 带上这两个键会被后端按「自助提权」拒掉（403），连他自己的名单都存不下去。
+  var _body = { biz: gxBiz, depts: gxDepts, people: gxPeople,
+                sup_depts: gxSupDepts, sup_people: gxSupPeople,
+                user_depts: gxUserDepts, user_people: gxUserPeople };
+  if (gxCanAdmin) { _body.admin_depts = gxAdminDepts; _body.admin_people = gxAdminPeople; }
+  fetch('/api/review/save', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(_body)
+  }).then(function (r) { return r.json(); }).then(function (d) {
+    btn.disabled = false; btn.textContent = _old;
+    if (d.ok) {
+      var _c1 = document.getElementById('gxCnt'); if (_c1) _c1.textContent = d.count;
+      var _c2 = document.getElementById('gxAdminCnt'); if (_c2) _c2.textContent = d.admin_count;
+      var _c3 = document.getElementById('gxSupCnt'); if (_c3) _c3.textContent = d.sup_count;
+      var _c4 = document.getElementById('gxUserCnt'); if (_c4) _c4.textContent = d.user_count;
+      gxToast(gxBiz === 'safety'
+        ? ('已保存：超管 ' + d.admin_count + ' 人 · 审核人 ' + d.count +
+           ' 人 · 普通用户 ' + d.user_count + ' 人')
+        : ('已保存：超管 ' + d.admin_count + ' 人 · 调试上级责任人 ' + d.sup_count +
+           ' 人 · 调试责任人 ' + d.user_count + ' 人'));
+      setTimeout(function () { location.reload(); }, 900);
+    } else { gxToast(d.msg || '保存失败'); }
+  }).catch(function () {
+    btn.disabled = false; btn.textContent = _old; gxToast('保存失败，请重试');
+  });
+}
+function gxRefreshOrg() {
+  gxToast('正在拉取组织架构…');
+  fetch('/api/org/refresh', { method: 'POST' }).then(function (r) { return r.json(); })
+    .then(function (d) { gxToast(d.ok ? ('已更新：部门 ' + d.depts + ' 个，人员 ' + d.users + ' 人') : '更新失败'); });
+}
+/* ===== V1.16.37：手机端「管理」操作面板 =====
+   用户报障「按钮不要这样拥挤」—— 一行 4~5 个动作挤在 100 多像素宽的操作列里，
+   按钮几乎贴在一起。手机端把整列收成一个「管理」按钮，点开从底部弹出面板。
+
+   实现要点：**搬 DOM 节点**（不是 innerHTML 复制）——
+   内联 onclick 原样保留、不用重新绑定；关掉时再搬回原单元格。
+   面板里动作全占一整行、44px 高，比原来一排小药丸好按得多。 */
+let _opsOrigin = null;
+
+function openOpsSheet(btn) {
+    const td = btn.closest('td.ops-cell');
+    if (!td) return;
+    const full = td.querySelector('.ops-full');
+    const body = document.getElementById('opsSheetBody');
+    if (!full || !body) return;
+    const tr = btn.closest('tr');
+    const nm = ((tr && tr.dataset.name) || '').trim();
+    document.getElementById('opsSheetName').textContent = nm ? (nm + ' · 操作') : '操作';
+    _opsOrigin = td;
+    body.innerHTML = '';
+    // 表格里为了不裁字用的是短标签（责任人 / 上级），搬进面板时换回全称。
+    // ⚠️ 必须把短标签那套删掉 —— 源 HTML 里长短两套都在，
+    //    只还原不删就会在下拉里出现「调试责任人/调试上级责任人/责任人/上级」四行重复项。
+    const sel = full.querySelector('.role-sel');
+    if (sel && sel.dataset.srcHtml) {
+        sel.innerHTML = sel.dataset.srcHtml;
+        Array.from(sel.querySelectorAll('.opt-short')).forEach(o => o.remove());
+    }
+    // 搬走（顺序不变，所以关掉再搬回来位置也对）
+    while (full.firstChild) body.appendChild(full.firstChild);
+    // 光一个下拉框看不出是改什么，加个小标题
+    if (sel) {
+        const cap = document.createElement('div');
+        cap.className = 'ops-sheet-cap';
+        cap.textContent = '角色（改完即时生效）';
+        body.insertBefore(cap, sel);
+    }
+    document.getElementById('opsSheetMask').classList.add('on');
+    document.getElementById('opsSheet').classList.add('on');
+}
+
+function closeOpsSheet() {
+    const body = document.getElementById('opsSheetBody');
+    const full = _opsOrigin && _opsOrigin.querySelector('.ops-full');
+    if (full && body) {
+        const cap = body.querySelector('.ops-sheet-cap');
+        if (cap) cap.remove();               // 小标题不能跟着搬回表格里
+        while (body.firstChild) full.appendChild(body.firstChild);
+        // 搬回来之后再按屏幕宽度裁一次角色下拉的文案
+        if (typeof v1636ShortRoleLabels === 'function') v1636ShortRoleLabels();
+    }
+    _opsOrigin = null;
+    document.getElementById('opsSheetMask').classList.remove('on');
+    document.getElementById('opsSheet').classList.remove('on');
+}
+
+gxRenderLists();
+</script>
+
+<!-- 🔴 V1.16.37：手机端「管理」抽屉（默认藏在屏幕下方，点行内「管理」才升起） -->
+<div class="ops-sheet-mask" id="opsSheetMask" onclick="closeOpsSheet()"></div>
+<div class="ops-sheet" id="opsSheet" role="dialog" aria-modal="true" aria-labelledby="opsSheetName">
+    <div class="ops-sheet-head">
+        <b id="opsSheetName">操作</b>
+        <button type="button" class="ops-sheet-x" onclick="closeOpsSheet()">关闭</button>
+    </div>
+    <div class="ops-sheet-body" id="opsSheetBody"></div>
+</div>
+</body>
+</html>

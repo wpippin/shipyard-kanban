@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>6S 评分明细</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<script>
+        try {
+            var t = localStorage.getItem('shipyard_theme');
+            if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="/static/css/theme.css">
+<link href="/static/css/v16.css" rel="stylesheet">
+<script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16">
+
+<div class="v16-top">
+    <a class="bk" href="/sixs{{ back_qs }}">‹ 返回</a>
+    <h1 class="ttl">6S 评分明细</h1>
+    <span class="rt"></span>
+</div>
+
+<div class="v16-wrap">
+
+    <div class="v16-card" style="text-align:center">
+        <div class="v16-xs v16-muted">
+            {{ r['ship_no'] }}船 · {{ week_label }} · {{ r['ctime'] }}{% if r['scorer'] %} · 评分人 {{ r['scorer'] }}{% endif %}
+        </div>
+        <div style="font-size:40px;font-weight:800;line-height:1.1;color:var(--v16-pri);margin:6px 0 2px">{{ r['score'] }}</div>
+        <div class="v16-xs v16-muted">基本分 {{ base }} − 扣 {{ r['deduct'] }} 条</div>
+    </div>
+
+    {% if picks %}
+    {% set ns = namespace(g='') %}
+    <div class="v16-grp">
+    {% for gname, code, text in items %}
+    {% if code in picks %}
+    {% if gname != ns.g %}{% set ns.g = gname %}</div><div class="v16-grp"><div class="v16-grp-t">{{ gname }}</div>{% endif %}
+    <div class="v16-it on" style="cursor:default">
+        <div class="v16-it-in">
+            <span class="code">{{ code }}</span>
+            <span class="txt">{{ text }}</span>
+            <span class="mark">扣</span>
+        </div>
+        {% if picks[code] %}
+        <div class="v16-xs" style="color:var(--v16-bad);padding:0 12px 9px 64px">备注：{{ picks[code] }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    </div>
+    {% else %}
+    <div class="v16-card"><div class="v16-empty">这条记录没有勾任何不符合项（满分）</div></div>
+    {% endif %}
+
+    <div class="v16-btnrow" style="margin-top:12px">
+        {# V1.51：同一条船同一周只保留一份评分；换一周可以再打一次 #}
+        <a class="v16-btn gray" href="/sixs{{ back_qs }}">返回该周历史</a>
+    </div>
+
+</div>
+
+</body>
+</html>

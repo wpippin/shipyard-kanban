@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>亮点展示</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<script>
+        try {
+            var t = localStorage.getItem('shipyard_theme');
+            if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="/static/css/theme.css">
+<link href="/static/css/v16.css" rel="stylesheet">
+<script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16 pb">
+
+<style>
+    /* ===== V1.22：亮点页底部导航（左范围选择 / 中发起 / 右我的）=====
+       颜色全走 v16 变量，暗色模式自动适配 */
+    .hl-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 95;
+        display: flex; align-items: stretch; background: var(--v16-card);
+        border-top: 1px solid var(--v16-line);
+        padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+        box-shadow: 0 -2px 12px rgba(15,23,42,.06); }
+    .hl-tab { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+        background: none; border: 0; color: var(--v16-sub); text-decoration: none;
+        font-size: 11px; font-weight: 600; line-height: 1; padding: 4px 0; cursor: pointer; }
+    .hl-tab svg { width: 22px; height: 22px; stroke: currentColor; fill: none;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .hl-tab.on { color: var(--v16-pri); }
+    .hl-tab:active { opacity: .65; }
+    /* 中间「发起」：小圆形蓝底，不再用超大药丸 */
+    .hl-tab-pri { color: var(--v16-pri); }
+    .hl-tab-pri .hl-fab { display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; border-radius: 50%;
+        background: var(--v16-pri); color: #fff;
+        box-shadow: 0 3px 8px rgba(29,78,216,.28); }
+    .hl-tab-pri .hl-fab svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.4; }
+    .hl-tab-pri:active .hl-fab { background: var(--v16-pri-d); }
+    /* 底部范围选择弹层 */
+    .hl-sheet { position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 200; }
+    .hl-sheet-mask { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: rgba(15,23,42,.45); }
+    .hl-sheet-body { position: absolute; left: 0; right: 0; bottom: 0;
+        background: var(--v16-card); border-radius: 16px 16px 0 0;
+        padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+        box-shadow: 0 -6px 24px rgba(15,23,42,.12); }
+    .hl-sheet-tit { font-size: 13px; font-weight: 700; color: var(--v16-txt); margin: 2px 2px 10px; }
+    .hl-sheet-opt { display: flex; align-items: center; justify-content: space-between; width: 100%;
+        background: var(--v16-graybg); border: 1px solid var(--v16-line); border-radius: 10px;
+        padding: 12px 14px; margin-bottom: 8px; color: var(--v16-txt);
+        font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+    .hl-sheet-opt small { color: var(--v16-sub); font-size: 11px; font-weight: 400; }
+    .hl-sheet-opt.on { border-color: var(--v16-pri); color: var(--v16-pri); background: var(--v16-pri-l); }
+</style>
+
+<div class="v16-top">
+    <a class="bk" href="{{ '/safety' if ship and (ship.biz or '') == 'safety' else '/boards' }}">‹ 返回</a>
+    <h1 class="ttl">亮点展示</h1>
+    <span class="rt">{% if user_name %}{{ user_name }}{% endif %}</span>
+</div>
+
+<div class="v16-wrap">
+
+{% if not ships %}
+    <div class="v16-card"><div class="v16-empty">暂无可用区域，请先新建看板（{{ CAT_GROUP_LABELS.values()|join(' / ') }}）</div></div>
+{% else %}
+
+    {# ===== V1.22：发起亮点表单（归属=表单内下拉自选） ===== #}
+    <div class="v16-card" id="hlFormCard" style="display:none">
+        <div class="v16-spread" style="align-items:center">
+            <span class="v16-tit">发起亮点 / 问题</span>
+        </div>
+        <form method="POST" action="/hl/new" enctype="multipart/form-data" onsubmit="return hlApCheck()">
+            <input type="hidden" name="biz" value="safety">
+            <input type="hidden" name="kind" id="kindInput" value="highlight">
+            <label class="lb" style="margin-top:0">归入</label>
+            <select name="ship_id">
+                {% for _g, _items in (areas or []) %}
+                <optgroup label="{{ _g }}">
+                    {% for a in _items %}
+                    <option value="{{ a.id }}" {% if a.id == ship_id %}selected{% endif %}>{{ a.label }}</option>
+                    {% endfor %}
+                </optgroup>
+                {% endfor %}
+            </select>
+            <label class="lb">类型</label>
+            <div class="v16-chips" id="kchips">
+                <span class="v16-chip on" data-k="highlight">亮点</span>
+                <span class="v16-chip" data-k="issue">问题</span>
+            </div>
+            <label class="lb">标题</label>
+            <input type="text" name="title" maxlength="200" placeholder="一句话概括">
+            <label class="lb">说明</label>
+            <textarea name="descr" rows="3" maxlength="1000" placeholder="说清楚做了什么、好在哪"></textarea>
+            <label class="lb">照片</label>
+            <input type="file" name="photo" accept="image/*">
+            <label class="lb">审批人（点选，仅安全超管，任一人通过即可）</label>
+            <div class="v16-chips" id="apChips"></div>
+            <input type="text" id="apSearch" placeholder="搜姓名 / 部门 / 手机号" autocomplete="off"
+                   oninput="apRender()" style="margin-top:6px">
+            <div class="who-list" id="apList" style="max-height:190px"></div>
+            <input type="hidden" name="approvers" id="apInput" value="">
+            <div style="height:11px"></div>
+            <button type="submit" class="v16-btn">提交</button>
+        </form>
+    </div>
+
+    <div class="v16-spread" style="margin:14px 10px 8px">
+        <b style="font-size:14.5px">展示墙</b>
+        <span class="v16-xs v16-muted">已通过 {{ approved|length }}</span>
+    </div>
+
+    {% if not approved %}
+    <div class="v16-card"><div class="v16-empty">还没有审核通过的亮点</div></div>
+    {% else %}
+    <div class="v16-chips" id="fchips" style="margin-bottom:9px">
+        <span class="v16-chip mut on" data-f="0">全部</span>
+        <span class="v16-chip mut" data-f="1">亮点</span>
+        <span class="v16-chip mut" data-f="2">问题</span>
+    </div>
+
+    <input type="text" id="hlSearch" placeholder="搜标题 / 提交人 / 评语 / 归属（船号·场地·设备）" autocomplete="off"
+           style="width:100%;margin-bottom:9px" oninput="hlApply()">
+    {% for h in approved %}
+    <div class="v16-card hl-row" data-kind="{{ h.kind }}"
+         data-search="{{ (h.title ~ ' ' ~ (h.submitter or '') ~ ' ' ~ (h.review_note or '') ~ ' ' ~ (h.area_label or ''))|lower }}">
+        <div class="v16-row" style="align-items:flex-start;gap:9px">
+            <div style="flex:1;min-width:0">
+                <div class="v16-spread" style="align-items:flex-start">
+                    <span class="v16-tit" style="flex:1;min-width:0">{{ h.title }}</span>
+                    <span class="v16-tag {{ 't-ok' if h.kind == 'highlight' else 't-bad' }}">{{ kind_map.get(h.kind, '亮点') }}</span>
+                </div>
+                {# V1.31：归属单独成行；V1.32：类型判断修好后补上「产品船 / 场地」前缀 #}
+                <div class="v16-row" style="margin-top:6px;gap:6px;flex-wrap:wrap;align-items:center">
+                    <span class="v16-xs v16-muted" style="flex:0 0 auto">归属</span>
+                    {% if h.area_label %}
+                    <span class="v16-tag t-info hl-owner">{{ CAT_GROUP_LABELS.get(h.area_type, h.area_type) }} · {{ h.area_label }}</span>
+                    {% else %}
+                    <span class="v16-tag t-info hl-owner">未指定</span>
+                    {% endif %}
+                </div>
+                {% if h.descr %}<div class="v16-sm v16-muted" style="margin-top:3px;line-height:1.55">{{ h.descr }}</div>{% endif %}
+                <div class="v16-row" style="margin-top:6px;flex-wrap:wrap;gap:6px">
+                    {% if h.reward %}<span class="v16-tag t-ok">奖励 ¥{{ h.reward }}</span>{% endif %}
+                    {% if h.punish %}<span class="v16-tag t-bad">罚款 ¥{{ h.punish }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if h.photo_path %}
+        <a href="/uploads/{{ h.photo_path }}" target="_blank">
+            <img src="/photo/{{ h.photo_path }}?w=640" style="max-width:100%;max-height:190px;border-radius:8px;margin-top:7px">
+        </a>
+        {% endif %}
+        <div class="v16-xs v16-muted" style="margin-top:5px">
+            {{ h.submitter or '—' }} · {{ h.created_at or h.review_time or '' }}
+        </div>
+        {% if h.review_note %}<div class="v16-xs v16-muted" style="margin-top:3px">评语：{{ h.review_note }}</div>{% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+{% endif %}
+</div>
+
+<div class="v16-toast" id="tb"></div>
+<script>
+function toast(m){var t=document.getElementById('tb');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1800);}
+
+// 展示墙筛选：类型 chips + 关键词搜索叠加（V1.16.9）
+var hlKind = '0';
+function hlApply(){
+  var sEl = document.getElementById('hlSearch');
+  var kw = ((sEl && sEl.value) || '').trim().toLowerCase();
+  Array.prototype.forEach.call(document.querySelectorAll('.hl-row'),function(c){
+    var k=c.getAttribute('data-kind');
+    var okK = (hlKind==='0') || (hlKind==='1' && k==='highlight') || (hlKind==='2' && k==='issue');
+    var okS = !kw || (c.getAttribute('data-search')||'').indexOf(kw)>=0;
+    c.style.display = (okK && okS) ? '' : 'none';
+  });
+}
+(function(){
+  var box=document.getElementById('fchips');
+  if(!box) return;
+  box.addEventListener('click',function(e){
+    var b=e.target.closest ? e.target.closest('.v16-chip') : null;
+    if(!b) return;
+    Array.prototype.forEach.call(box.querySelectorAll('.v16-chip'),function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    hlKind = b.getAttribute('data-f');
+    hlApply();
+  });
+})();
+
+</script>
+
+{% set _s = scope|default('all') %}
+<nav class="hl-tabbar" aria-label="底部导航">
+    <button class="hl-tab on" type="button" onclick="hlOpenScope()">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span id="scopeLabel">{{ '全部' if _s == 'all' else CAT_GROUP_LABELS.get(_s, _s) }}</span>
+    </button>
+    <button class="hl-tab hl-tab-pri" type="button" onclick="hlOpenForm()">
+        <span class="hl-fab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </span>
+        <span>发起</span>
+    </button>
+    <a class="hl-tab" href="/my?biz=safety">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.6 20c1.1-3.5 3.9-5.3 7.4-5.3S18.3 16.5 19.4 20"/></svg>
+        <span>我的</span>
+    </a>
+</nav>
+
+<div class="hl-sheet" id="scopeSheet" style="display:none">
+    <div class="hl-sheet-mask" onclick="hlCloseScope()"></div>
+    <div class="hl-sheet-body">
+        <div class="hl-sheet-tit">展示范围</div>
+        <button class="hl-sheet-opt {{ 'on' if _s == 'all' }}" type="button" onclick="hlSetScope('all')">全部 <small>所有类别</small></button>
+        {% for _b, _lbl in CAT_GROUP_LABELS.items() %}
+        <button class="hl-sheet-opt {{ 'on' if _s == _b }}" type="button" onclick="hlSetScope('{{ _b }}')">{{ _lbl }} <small>只看{{ _lbl }}类的亮点</small></button>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+// ===== V1.20.1：发起亮点表单（从「我的」挪回亮点页）=====
+{% if ships %}
+var HL_APPR = {{ reviewers|tojson }};
+var apPicked = [];
+function apSync() {
+    var chips = document.getElementById('apChips');
+    var inp = document.getElementById('apInput');
+    if (chips) {
+        chips.innerHTML = apPicked.map(function (x, i) {
+            return '<span class="v16-chip on" data-i="' + i + '" onclick="apRemove(this)">'
+                 + x.name + ' \u00d7</span>';
+        }).join('');
+    }
+    if (inp) { inp.value = apPicked.length ? JSON.stringify(apPicked) : ''; }
+}
+function apRender() {
+    var box = document.getElementById('apList');
+    if (!box) { return; }
+    var kwEl = document.getElementById('apSearch');
+    var kw = (kwEl ? (kwEl.value || '') : '').trim().toLowerCase();
+    var html = '', n = 0, i, p, nm, ph, tg, on, t;
+    for (i = 0; i < HL_APPR.length && n < 300; i++) {
+        p = HL_APPR[i] || {};
+        nm = p.name || ''; ph = p.phone || ''; tg = p.tag || '';
+        t = (nm + ' ' + ph + ' ' + tg).toLowerCase();
+        if (kw && t.indexOf(kw) < 0) { continue; }
+        n++;
+        on = apPicked.some(function (x) { return x.phone === ph; });
+        html += '<div class="who-row' + (on ? ' on' : '') + '" data-n="' + nm + '" data-p="' + ph
+              + '" onclick="apToggle(this)"><b>' + nm + '</b><span class="ds">' + tg
+              + (ph ? ' · ' + ph : '') + '</span></div>';
+    }
+    box.innerHTML = n ? html : '<div class="v16-empty">没找到，换个关键词</div>';
+}
+function apToggle(el) {
+    var nm = el.getAttribute('data-n') || '', ph = el.getAttribute('data-p') || '';
+    if (!ph) { return; }
+    var idx = -1, i;
+    for (i = 0; i < apPicked.length; i++) { if (apPicked[i].phone === ph) { idx = i; break; } }
+    if (idx >= 0) { apPicked.splice(idx, 1); } else { apPicked.push({ name: nm, phone: ph }); }
+    apSync(); apRender();
+}
+function apRemove(el) {
+    var i = parseInt(el.getAttribute('data-i'), 10);
+    if (!isNaN(i)) { apPicked.splice(i, 1); apSync(); apRender(); }
+}
+function hlApCheck() {
+    if (HL_APPR.length && !apPicked.length) {
+        toast('请先点选审批人（自己指定，谁审谁负责）');
+        return false;
+    }
+    apSync();
+    return true;
+}
+(function(){
+    var box = document.getElementById('kchips'), inp = document.getElementById('kindInput');
+    if (!box || !inp) return;
+    box.addEventListener('click', function(e){
+        var b = e.target.closest ? e.target.closest('.v16-chip') : null;
+        if (!b) return;
+        Array.prototype.forEach.call(box.querySelectorAll('.v16-chip'), function(x){ x.classList.remove('on'); });
+        b.classList.add('on');
+        inp.value = b.getAttribute('data-k');
+    });
+})();
+{% endif %}
+
+function hlOpenForm(){
+    {% if not ships %}
+    toast('暂无可用区域，请先在安全档新建看板');
+    return;
+    {% endif %}
+    var c = document.getElementById('hlFormCard');
+    if (!c) return;
+    var show = (c.style.display === 'none');
+    c.style.display = show ? '' : 'none';
+    if (show) {
+        c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var t = c.querySelector('input[type=text][name=title]');
+        if (t) setTimeout(function(){ t.focus(); }, 350);
+        {% if ships %}apSync(); apRender();{% endif %}
+    }
+}
+function hlOpenScope(){
+    var s = document.getElementById('scopeSheet');
+    if (s) s.style.display = '';
+}
+function hlCloseScope(){
+    var s = document.getElementById('scopeSheet');
+    if (s) s.style.display = 'none';
+}
+function hlSetScope(v){
+    location.href = '/hl?scope=' + v + '&biz={{ biz }}';
+}
+apSync && apSync(); apRender && apRender();
+</script>
+</body>
+</html>

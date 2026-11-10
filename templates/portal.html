@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{{ portal_title }} - 业务首页</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<script>
+        // 尽早套用主题，避免闪白
+        try {
+            var t = localStorage.getItem('shipyard_theme');
+            if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+    <style>
+        :root {
+            --navy: #1d4ed8; --navy-deep: #172554; --blue: #2563eb;
+            --tile-icon-bg: #eff6ff; --tile-icon-fg: #2563eb;
+            --portal-base: #f8fafc;
+            --portal-bg:
+                radial-gradient(120% 60% at 12% -6%, rgba(37, 99, 235, .26), transparent 62%),
+                radial-gradient(95% 45% at 102% 0%, rgba(34, 211, 238, .20), transparent 55%),
+                radial-gradient(90% 55% at 48% 114%, rgba(139, 92, 246, .18), transparent 60%),
+                linear-gradient(180deg, #f8fafc 0%, #e2ebf6 100%);
+        }
+        html[data-theme="dark"] {
+            --tile-icon-bg: rgba(63, 120, 180, .28); --tile-icon-fg: #9ecbf5;
+            --portal-base: #0f172a;
+            --portal-bg:
+                radial-gradient(120% 60% at 12% -6%, rgba(59, 130, 246, .62), transparent 62%),
+                radial-gradient(95% 45% at 102% 0%, rgba(34, 211, 238, .42), transparent 55%),
+                radial-gradient(90% 55% at 48% 114%, rgba(139, 92, 246, .48), transparent 60%),
+                linear-gradient(180deg, #0f172a 0%, #182545 100%);
+        }
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0; background: var(--portal-base, #f8fafc) !important; color: var(--sy-text, #1f2a37);
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+            padding-bottom: 28px;
+        }
+        /* 光斑放 fixed 伪元素层：永远铺满视口、滚动不重绘，杜绝渐变 repeat 出现分界线 */
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background: var(--portal-bg);
+            pointer-events: none;
+        }
+        .head {
+            background: linear-gradient(135deg, var(--navy), var(--blue));
+            color: #fff; padding: 26px 18px 24px;
+            text-align: center;
+        }
+        .head .title { font-size: 20px; font-weight: 700; letter-spacing: 1.5px; }
+        .wrap { padding: 0 0 8px; }
+        .section { background: var(--sy-surface, #fff); margin-top: 10px; padding: 14px 14px 6px; }
+        .section-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 15px; font-weight: 700; color: var(--sy-text, #1f2a37);
+            margin-bottom: 4px;
+        }
+        .section-title::before {
+            content: ''; width: 3px; height: 15px; border-radius: 2px;
+            background: linear-gradient(180deg, var(--blue), var(--navy));
+        }
+        .section-desc { font-size: 12px; color: var(--sy-muted, #64748b); margin: 0 0 10px 11px; }
+        .grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 14px 6px; padding: 6px 0 14px;
+        }
+        @media (min-width: 576px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+        @media (min-width: 992px) { .grid { grid-template-columns: repeat(8, 1fr); } }
+        .tile {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 7px; text-decoration: none; color: inherit; position: relative;
+            padding: 4px 2px; border-radius: 12px;
+        }
+        .tile:active { background: var(--sy-surface-2, #f1f5f9); }
+        .tile .icon {
+            width: 54px; height: 54px; border-radius: 15px;
+            background: var(--tile-icon-bg); color: var(--tile-icon-fg);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(20, 64, 107, .10);
+        }
+        .tile .icon svg { width: 28px; height: 28px; }
+        .tile .label {
+            font-size: 12.5px; line-height: 1.25; text-align: center;
+            color: var(--sy-text-2, #334155); max-width: 82px;
+            word-break: break-word;
+        }
+        .tile .badge {
+            position: absolute; top: -2px; right: 14px;
+            min-width: 18px; height: 18px; padding: 0 5px;
+            border-radius: 9px; background: #ef4444; color: #fff;
+            font-size: 11px; line-height: 18px; text-align: center; font-weight: 700;
+        }
+        .tile.disabled .icon { background: var(--sy-surface-3, #e2e8f0); color: var(--sy-muted, #94a3b8); box-shadow: none; }
+        .tile.disabled .label { color: var(--sy-muted, #94a3b8); }
+        .tile.disabled { pointer-events: none; }
+        .foot { text-align: center; font-size: 12px; color: var(--sy-muted, #94a3b8); padding: 16px 0 4px; }
+        #themeToggle { position: fixed; right: 14px; bottom: 14px; width: 40px; height: 40px;
+            border-radius: 50%; border: 1px solid var(--sy-border, #e2e8f0); background: var(--sy-surface, #fff);
+            color: var(--sy-text-2, #334155); box-shadow: var(--sy-shadow, 0 6px 18px rgba(15,23,42,.12)); }
+        #themeToggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    </style>
+</head>
+<body>
+
+{% set ICONS = {
+  'board': '<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M9 21V9"/><path d="M13 13.5h4M13 17h4"/>',
+  'mine': '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c.7-3.9 3.8-6 7.5-6s6.8 2.1 7.5 6"/>',
+  'list': '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="5" cy="6" r="1.2"/><circle cx="5" cy="12" r="1.2"/><circle cx="5" cy="18" r="1.2"/>',
+  'clock': '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  'users': '<circle cx="9" cy="8.5" r="3.2"/><path d="M2.8 20c.6-3.4 3.2-5.3 6.2-5.3s5.6 1.9 6.2 5.3"/><path d="M17 8.4a3 3 0 0 1 0 5.9M18.5 20c-.2-1.7-.8-3.1-1.7-4.1"/>',
+  'shield': '<path d="M12 3 5 6v6c0 4.4 3 7.8 7 9 4-1.2 7-4.6 7-9V6l-7-3Z"/><path d="M9.2 12.2l2 2 3.6-3.8"/>',
+  'gear': '<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2.6 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 19.4 11a2 2 0 1 1 0 4Z"/>',
+  'chart': '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  'doc': '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  'lock': '<rect x="4.5" y="10.5" width="15" height="10" rx="2.4"/><path d="M8 10.5V7.6a4 4 0 0 1 8 0v2.9"/>',
+  'check': '<path d="M20 6.5 9.6 17 4 11.4"/>',
+  'star': '<path d="M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.9l-5.3 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5z"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>'
+} %}
+
+<div class="head">
+    <div class="title">{{ portal_title }}</div>
+</div>
+
+<div class="wrap">
+    {% for sec in sections %}
+    <div class="section">
+        <div class="section-title">{{ sec.title }}</div>
+        {% if sec.desc %}<div class="section-desc">{{ sec.desc }}</div>{% else %}<div style="height:8px"></div>{% endif %}
+        <div class="grid">
+            {% for it in sec['items'] %}
+                {% if it.disabled %}
+                <span class="tile disabled">
+                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ ICONS.get(it.icon, ICONS['list']) | safe }}</svg></span>
+                    <span class="label">{{ it.label }}</span>
+                </span>
+                {% else %}
+                <a class="tile" href="{{ it.url }}">
+                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{{ ICONS.get(it.icon, ICONS['list']) | safe }}</svg></span>
+                    <span class="label">{{ it.label }}</span>
+                    {% if it.badge %}<span class="badge">{{ it.badge }}</span>{% endif %}
+                </a>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% if portal_footer %}<div class="foot">{{ portal_footer }}</div>{% endif %}
+</div>
+
+</body>
+</html>

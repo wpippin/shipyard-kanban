@@ -1,0 +1,94 @@
+/* 图片查看器 V1.5.3
+   修复：安卓/微信 WebView 里点开照片"一下子放到最大"。
+   原因有两个：
+     ① 缩略图外面套了 <a target="_blank">，一点就走浏览器原生大图页，
+        CSS 完全管不到它 —— 已由模板侧去掉外层链接；
+     ② 全屏层按"原图像素"铺开，5712x4284 的手机原图直接把屏幕撑满。
+   现在默认"适应屏幕"显示（contain，不放大），点一下图才切到原始大小。 */
+
+#imgviewer-overlay {
+  position: fixed; inset: 0; z-index: 99999;
+  background: rgba(0, 0, 0, 0.88);
+  display: none;
+  align-items: center; justify-content: center;
+  flex-direction: column;
+  padding: 10px; box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#imgviewer-overlay.show { display: flex; }
+
+/* 舞台：只在"原始大小"模式下滚动 */
+#imgviewer-stage {
+  flex: 1 1 auto;
+  width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+#imgviewer-overlay.zoom #imgviewer-stage {
+  overflow: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 默认：整张图缩到屏幕内（小图不放大小图，大图按比例缩小），绝不撑满 */
+#imgviewer-img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 110px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  cursor: zoom-in;
+}
+
+/* 点一下图 → 原始大小（1:1 像素），可拖动查看 */
+#imgviewer-overlay.zoom #imgviewer-img {
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  cursor: zoom-out;
+}
+
+#imgviewer-overlay #imgviewer-caption {
+  color: #ddd; font-size: 13px; margin-top: 8px;
+  text-align: center; max-width: 100%;
+  word-break: break-all;
+}
+
+#imgviewer-overlay #imgviewer-hint {
+  color: #9aa0a6; font-size: 12px; margin-top: 2px;
+  text-align: center;
+}
+
+#imgviewer-overlay #imgviewer-close {
+  position: absolute; top: 10px; right: 12px;
+  background: rgba(255, 255, 255, 0.15); color: #fff;
+  border: none; font-size: 30px; line-height: 1;
+  width: 42px; height: 42px; border-radius: 50%;
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; justify-content: center;
+}
+#imgviewer-overlay #imgviewer-close:hover,
+#imgviewer-overlay #imgviewer-close:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 查看原图按钮 */
+#imgviewer-overlay #imgviewer-original {
+  position: absolute; top: 16px; left: 12px;
+  background: rgba(255, 255, 255, 0.15); color: #fff;
+  border: none; font-size: 13px; padding: 8px 12px;
+  border-radius: 16px; cursor: pointer;
+}
+#imgviewer-overlay #imgviewer-original:active { background: rgba(255, 255, 255, 0.3); }
+
+/* 让缩略图有点点击感 */
+img.photo-thumb { -webkit-tap-highlight-color: transparent; }

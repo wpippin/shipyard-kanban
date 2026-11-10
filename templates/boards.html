@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>船舶完整性看板列表 - 船舶完整性管理</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <style>
+        /* ===== V1.4.5 UI 样板页：统一海工蓝品牌色调（排版/结构/功能不变，仅视觉精修） ===== */
+        :root {
+            --navy: #14406b;            /* 主品牌深蓝 */
+            --navy-deep: #0e2f50;       /* 更深一档（渐变/按压） */
+            --blue: #2f6fae;            /* 次级蓝 */
+            --ink: #1f2a37;             /* 主文字 */
+            --muted: #64748b;           /* 次级文字 */
+            --line: #e2e8f0;            /* 分隔线 */
+            --bg: #eef3f8;              /* 页面底色（极浅蓝灰） */
+            --card-radius: 16px;
+        }
+        body { background: var(--bg); color: var(--ink); }
+        .container { max-width: 1180px; }
+        /* —— 头部 —— */
+        .board-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+        .board-header .board-title { grid-column: 2; color: var(--ink); font-weight: 800; letter-spacing: .5px; }
+        .board-header .board-title small { color: var(--muted) !important; font-weight: 500; }
+        .board-header .login-side { grid-column: 3; justify-self: end; white-space: nowrap; }
+        /* —— 登录区按钮 —— */
+        .login-side .btn, .login-side .btn-outline-primary, .login-side .btn-outline-secondary,
+        .login-side .btn-outline-danger, .login-side .btn-outline-info {
+            border-radius: 9px; font-size: 13px;
+        }
+        /* —— 看板卡片 —— */
+        .ship-card { border-radius: var(--card-radius); border: 1px solid var(--line) !important;
+            box-shadow: 0 1px 2px rgba(15,40,80,.04) !important;
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+        .ship-card:hover { transform: translateY(-4px);
+            box-shadow: 0 10px 26px rgba(15,60,120,.12) !important; border-color: #c3d5e8 !important; }
+        .ship-card .card-title { font-weight: 800; font-size: 1.18rem; color: var(--navy); }
+        .ship-card .ship-no { color: var(--muted); }
+        .ship-card .stat-num { font-size: 1.45rem; font-weight: 800; line-height: 1; }
+        .ship-card .stat-label { color: var(--muted); font-size: 12px; letter-spacing: 1px; }
+        .ship-card .btn { border-radius: 9px; }
+        /* 状态分隔点 */
+        .ship-card .card-body { padding: 1.15rem 1.25rem; }
+        .stat-block { border-left: 2px solid var(--line); padding-left: 14px; }
+        /* —— 新建看板主按钮 —— */
+        .btn-create-board { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+            color: #fff; border: none; border-radius: 12px; padding: .72rem 2rem;
+            font-weight: 700; box-shadow: 0 6px 16px rgba(20,64,107,.25); transition: all .18s ease; }
+        .btn-create-board:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(20,64,107,.32); color:#fff; }
+        .btn-create-board:active { transform: translateY(0); background: var(--navy-deep); }
+        /* 模态框内统一主操作按钮（海工蓝实底，与头部渐变呼应） */
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 9px;
+            font-weight: 600; box-shadow: 0 4px 12px rgba(20,64,107,.18); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        /* 登录区用户名：不再用绿色强调，改为品牌色 + 内联图标 */
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+        /* —— 徽标 —— */
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        /* —— 模态框统一精修 —— */
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 18px 50px rgba(10,35,70,.22); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); padding: 14px 20px; }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.danger-head { background: #b3382f; color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); padding: 12px 20px; }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 9px; }
+        /* 弹窗内说明卡 */
+        .modal .alert { border-radius: 10px; }
+        .form-text { font-size: 12px; }
+        /* 人员联想下拉（沿用原行为，视觉微调） */
+        .suggest-wrap { position: relative; }
+        .suggest-dropdown { position: absolute; z-index: 1070; top: 100%; left: 0; right: 0; max-height: 240px; overflow-y: auto;
+            background: #fff; border: 1px solid #dbe4ee; border-radius: 10px; box-shadow: 0 10px 26px rgba(15,45,90,.14);
+            display: none; padding: 4px; }
+        .suggest-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; border-radius: 7px; }
+        .suggest-item:last-child { border-bottom: none; }
+        .suggest-item:hover { background: #f0f6fd; }
+        .suggest-label { font-weight: 600; font-size: 14px; color: var(--ink); }
+        .suggest-sub { font-size: 11px; color: var(--muted); }
+        .suggest-empty { padding: 8px 12px; color: #94a3b8; font-size: 13px; }
+        /* ===== V1.4.4 标签式（芯片）选人样式（保留原功能，配色随主题） ===== */
+        .pick-chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .pick-chip-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+            background: #e8f1fb; color: #17456f; border: 1px solid #bcd6ee; border-radius: 999px;
+            padding: 3px 6px 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 30px; }
+        .pick-chip-pill .pick-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pick-chip-x { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: #7ea9cf;
+            color: #fff; font-size: 13px; line-height: 17px; text-align: center; cursor: pointer; font-weight: 700; }
+        .pick-chip-x:active { background: #d32f2f; }
+        /* 多选：两段式芯片（绿=已确认，橙=待确认）+ 确认栏 */
+        .uc-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+        .uc-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border-radius: 999px;
+            padding: 3px 6px 3px 12px; font-size: 13px; font-weight: 600; min-height: 30px; }
+        .uc-chip .uc-chip-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .uc-chip-x { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.25);
+            color: #fff; font-size: 13px; line-height: 17px; text-align: center; cursor: pointer; font-weight: 700; }
+        .uc-chip-x:active { background: #d32f2f; }
+        .uc-chip.uc-ok { background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; }
+        .uc-chip.uc-pending { background: #fff6e5; color: #b06a00; border: 1px solid #f2cf8b; }
+        .uc-confirm-bar { display: none; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .uc-confirm-bar.show { display: flex; }
+        .uc-confirm-bar .uc-count { font-size: 13px; font-weight: 600; color: #b06a00; flex: 1; }
+        /* 新建看板弹窗内的责任单位配置行（动态生成，统一样式） */
+        #createAreaRows .card { border-radius: 12px; border-color: #d7e3ef !important; }
+        #createAreaRows .card-header.bg-primary { background: linear-gradient(135deg, var(--navy), var(--blue)) !important; color: #fff; }
+        #createAreaRows .card-header .btn-outline-light { color: #fff; border-color: rgba(255,255,255,.55); }
+        /* 表单校验红边仍保留原 Bootstrap 语义，仅微调圆角 */
+        .modal .border-danger { border-radius: 8px; }
+        .empty-tip { border-radius: 14px; background:#fff; border:1px dashed #c9d8e6; color: var(--muted); padding: 22px; }
+        /* 把 Bootstrap 主色统一到海工蓝，避免页面同时出现多种蓝色 */
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        @media (max-width: 767.98px) {
+            .board-header { grid-template-columns: 1fr; gap: 8px; }
+            .board-header .board-title { grid-column: 1; }
+            .board-header .login-side { grid-column: 1; justify-self: center; }
+            .container { padding: 12px 10px; }
+            .modal-dialog { margin: 10px auto; }
+        }
+
+        /* ===== V1.45 看板删除：页面内确认层（不依赖 WebView 的原生 confirm） ===== */
+        .v145-mask { position:fixed; inset:0; z-index:3000; display:none;
+            align-items:center; justify-content:center; padding:18px;
+            background:rgba(12,26,44,.62); }
+        .v145-mask.on { display:flex; }
+        .v145-dlg { width:100%; max-width:360px; background:#fff; color:#1f2a37;
+            border-radius:16px; padding:20px 18px 16px;
+            box-shadow:0 18px 50px rgba(0,0,0,.3); }
+        .v145-dlg h3 { margin:0 0 10px; font-size:17px; font-weight:800; color:#b3261e; }
+        .v145-dlg p { margin:0 0 16px; font-size:14px; line-height:1.75; white-space:pre-line; }
+        .v145-dlg .v145-btns { display:flex; gap:10px; }
+        .v145-dlg .v145-btns button { flex:1; padding:11px 8px; border-radius:10px;
+            font-size:14px; font-weight:700; cursor:pointer; border:1px solid #d7dee7;
+            background:#f1f5f9; color:#1f2a37; }
+        .v145-dlg .v145-btns button.v145-go { background:#c0392b; border-color:#c0392b; color:#fff; }
+        .v145-dlg .v145-btns button:disabled { opacity:.6; cursor:wait; }
+        .v145-note { display:none; margin:0 0 10px; padding:10px 12px; border-radius:10px;
+            font-size:13px; font-weight:600; line-height:1.6; }
+        .v145-note.on { display:block; }
+        .v145-note.err { background:#fdecea; border:1px solid #f0b4ac; color:#a02015; }
+        .v145-note.ok { background:#e8f6ee; border:1px solid #a6d8bb; color:#12663d; }
+        .v145-locked { opacity:.55; }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16">
+
+<div class="v16-top top-mid">
+    <a class="bk" href="/">&#8249; 返回首页</a>
+
+    <div class="v16-mid">
+        <h1 class="ttl">{{ '设备看板' if DEVICE_PAGE else '看板列表' }}</h1>
+        <span class="biztag">{{ '设备' if DEVICE_PAGE else ('安全隐患' if IS_SAFETY else '船舶完整性') }}</span>
+    </div>
+
+    <span class="rt">
+        <a class="v16-me" href="/my?biz={{ 'safety' if IS_SAFETY else 'debug' }}" title="进入我的">
+            <svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.2" r="3.4"/><path d="M5.2 19.4c.9-3.4 3.6-5.3 6.8-5.3s5.9 1.9 6.8 5.3"/></svg>
+            <span>我的</span>
+        </a>
+    </span>
+</div>
+
+<div class="v16-wrap">
+    <div id="v145Note" class="v145-note"></div>
+
+    <div class="v16-card v16-manage">
+        <a class="v16-btn mg sm auto" href="/admin/users{{ '?biz=safety' if IS_SAFETY else '' }}">
+            <svg class="mg-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5.2 19c1-3.3 3.9-5.2 6.8-5.2s5.8 1.9 6.8 5.2"/></svg>用户与鉴权</a>
+
+        {% if not IS_SAFETY %}
+        <a class="v16-btn mg sm auto" href="/admin/thresholds">
+            <svg class="mg-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10.5V13l2 1.4"/><path d="M9.2 3.5 6.5 6M14.8 3.5l2.7 2.5"/></svg>超时提醒设置</a>
+        {% endif %}
+
+        <a class="v16-btn mg sm auto" href="/syslists{{ '?biz=safety' if IS_SAFETY else '' }}">
+            <svg class="mg-ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="5" width="16" height="3" rx="1.3"/><rect x="4" y="10.5" width="16" height="3" rx="1.3"/><rect x="4" y="16" width="16" height="3" rx="1.3"/></svg>系统清单维护</a>
+        <a class="v16-btn mg sm auto" href="/admin/login_logs{{ '?biz=safety' if IS_SAFETY else '' }}">
+            <svg class="mg-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2"/></svg>登录日志</a>
+    </div>
+
+    {# V1.28：船舶完整性看板里全部都是产品船，没有「全部 / 产品船 / 场地」的分类意义，
+       整栏类别按钮不再渲染；安全隐患看板确有场地与产品船两类，筛选栏保留。 #}
+    {# V1.46：筛选按钮完全由类别配置生成，超管加一类这里自动多一个按钮 #}
+    {% if IS_SAFETY and not DEVICE_PAGE %}
+    <div id="catTabs" class="v16-row" style="margin:2px 0 8px;gap:6px;flex-wrap:wrap">
+        <button type="button" class="v16-btn sec sm auto" data-cat="all" onclick="setCat(this.dataset.cat)">全部</button>
+        {% for c in BOARD_CATS %}
+        <button type="button" class="v16-btn gray sm auto" data-cat="{{ c.key|e }}" onclick="setCat(this.dataset.cat)">{{ c.key }}{% if not c.enabled %}（停用）{% endif %}</button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="v16-row" style="margin:2px 0 12px">
+        <input type="text" id="boardSearch" placeholder="{{ '搜索设备看板' if DEVICE_PAGE else ('在当前分类里搜索看板' if IS_SAFETY else '搜索看板') }}" autocomplete="off"
+               oninput="filterBoards()" style="flex:1">
+
+        {% if user_role == 'super_admin' or (not IS_SAFETY and user_role == 'debug_sup') %}
+        <button type="button" class="v16-btn sec auto" style="flex:0 0 auto;padding:9px 14px"
+                onclick="showCreateModal()">+ 新建</button>
+        {% endif %}
+    </div>
+
+    <div id="boardList">
+    {% for s in ships %}
+
+    {% set _cat = s._behavior or 'place' %}
+    {% set _catkey = s._catkey or '其他' %}
+    {% set _disp = ((s.ship_no or '')|trim or s.name) if _cat == 'ship' else s.name %}
+    <div class="v16-card board-item" data-name="{{ s.name|e }}" data-no="{{ (s.ship_no or '')|e }}" data-cat="{{ _catkey|e }}">
+        <a class="board-link" href="{{ '/safety/board/' if IS_SAFETY else '/board/' }}{{ s.id }}">
+            <div class="v16-spread" style="align-items:flex-start">
+                <span class="v16-tit v16-ell">{{ _disp }}</span>
+                <span class="v16-tag {{ 't-info' if _cat == 'ship' else 't-gray' }}">{{ _catkey }}</span>
+            </div>
+            <div class="v16-sm v16-muted" style="margin-top:4px">
+                {% if _cat == 'ship' %}船号 {{ s.ship_no or '—' }}{% if s.name != _disp %} · {{ s.name }}{% endif %} · {% endif %}未闭环 <b class="v16-open">{{ s.open if s.open is not none else 0 }}</b> · 已闭环 {{ s.closed if s.closed is not none else 0 }}
+            </div>
+        </a>
+        {# V1.45：操作栏恒渲染 —— 以前整块按角色隐藏，未认到身份的人连「删除」入口都看不见 #}
+        <div class="v16-card-acts">
+            {% if s.is_default %}<span class="v16-tag t-info">默认</span>{% endif %}
+
+            {% if can_delete or user_role == 'super_admin' or (not IS_SAFETY and user_role == 'debug_sup') %}
+            <button type="button" class="v16-btn gray sm auto" onclick="showRenameModal(this)"
+                    data-id="{{ s.id }}" data-name="{{ s.name|e }}"
+                    data-ship-no="{{ s.ship_no|e if s.ship_no else '' }}"
+                    data-btype="{{ s.btype or '产品船' }}">编辑</button>
+            {% endif %}
+            {# V1.45：删除按钮恒可见。没有权限时给灰色版，点了弹出原因，不再「整个入口消失」 #}
+            {% if can_delete %}
+            <button type="button" class="v16-btn danger sm auto"
+                    onclick="confirmDelete({{ s.id }}, '{{ s.name|e }}', {{ 'true' if s.is_default else 'false' }}, {{ ships|length }})">删除</button>
+            {% else %}
+            <button type="button" class="v16-btn gray sm auto v145-locked"
+                    onclick="confirmDelete({{ s.id }}, '{{ s.name|e }}', {{ 'true' if s.is_default else 'false' }}, {{ ships|length }})">删除</button>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="v16-card"><div class="v16-empty">{{ '暂无设备看板，请点右上角「+ 新建」，类型选「' ~ CAT_GROUP_LABELS.device ~ '」' if DEVICE_PAGE else '暂无看板，请点右上角「+ 新建」' }}</div></div>
+    {% endfor %}
+    </div>
+
+    <div id="boardEmpty" class="v16-empty" style="display:none">没有匹配的看板</div>
+
+    {% if IS_SAFETY and not DEVICE_PAGE %}
+    <div class="v16-btnrow" style="margin-top:4px">
+        <a class="v16-btn sec" href="/sixs?biz=safety">产品船 6S 评分</a>
+        <a class="v16-btn gray" href="/hl?biz=safety">亮点展示 &#8250;</a>
+        {% if can_delete %}<a class="v16-btn gray" href="/admin/board_cats">类别维护</a>{% endif %}
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    // 照 Demo s9：搜索框即时过滤看板卡片
+    // V1.46：类别由后端配置注入；INIT_CAT 支持 /safety?cat=<类别> 直达
+    var INIT_CAT = {{ INIT_CAT|default("all")|tojson }};
+    // V1.16.46：二级菜单 —— 先选分类（全部/各类别），再在当前分类里打字检索
+    var CUR_CAT = 'all';
+    function setCat(c) {
+        CUR_CAT = c;
+        Array.prototype.forEach.call(document.querySelectorAll('#catTabs [data-cat]'), function (b) {
+            var on = b.getAttribute('data-cat') === c;
+            b.className = 'v16-btn sm auto ' + (on ? 'sec' : 'gray');
+        });
+        filterBoards();
+    }
+    function filterBoards() {
+        var box = document.getElementById('boardList');
+        var emp = document.getElementById('boardEmpty');
+        if (!box) return;
+        var kw = ((document.getElementById('boardSearch') || {}).value || '').trim().toLowerCase();
+        var shown = 0;
+        Array.prototype.forEach.call(box.querySelectorAll('.board-item'), function (it) {
+            var t = ((it.dataset.name || '') + ' ' + (it.dataset.no || '')).toLowerCase();
+            var ok = (CUR_CAT === 'all' || (it.getAttribute('data-cat') || '') === CUR_CAT)
+                     && (!kw || t.indexOf(kw) >= 0);
+            it.style.display = ok ? '' : 'none';
+            if (ok) shown++;
+        });
+        // 只有用户主动筛选（点了分类或输入了关键词）才显示「没有匹配的看板」；
+        // 一个看板都没有时仍由 Jinja 的「暂无看板」提示负责
+        if (emp) emp.style.display = (kw || CUR_CAT !== 'all') ? (shown ? 'none' : '') : 'none';
+    }
+</script>
+
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="/admin/boards" method="POST" enctype="multipart/form-data" onsubmit="return submitOnce(this, checkCreateBoard())">
+
+                <input type="hidden" name="biz" value="debug">
+                <input type="hidden" name="from_page" value="{{ 'devices' if DEVICE_PAGE else '' }}">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> {{ '新建设备看板' if DEVICE_PAGE else '新建船舶完整性看板' }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">看板类型 *</label>
+                        <select name="btype" id="createBtype" class="form-select" onchange="onBtypeChange()">
+                            {% if DEVICE_PAGE %}
+                            <option value="{{ CAT_GROUP_LABELS.device|e }}" data-behavior="device">{{ CAT_GROUP_LABELS.device }}</option>
+                            {% else %}
+                            {% for c in BOARD_CATS if c.enabled and (IS_SAFETY or c.behavior == 'ship') %}
+                            <option value="{{ c.key|e }}" data-behavior="{{ c.behavior }}">{{ c.key }}</option>
+                            {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold" id="createShipNoLabel">船号 *</label>
+                        <input type="text" name="ship_no" id="createShipNo" class="form-control border-danger"
+                               placeholder="例如：2554" oninput="syncBoardNameFromNo()">
+                        <div class="form-text" id="createShipNoHint"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">看板名称 *</label>
+                        <input type="text" name="name" id="createBoardName" class="form-control border-danger"
+                               placeholder="{{ '请填设备名称，例如：2号龙门吊' if DEVICE_PAGE else '选产品船后自动按船号生成，可修改' }}" required autocomplete="off"
+                               oninput="checkCreateNameDup()">
+                        <div class="form-text" id="createNameHint"></div>
+                    </div>
+                    {% if not IS_SAFETY %}
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">系统清单 Excel（可选）</label>
+                        <input type="file" name="sys_file" class="form-control" accept=".xlsx,.xls">
+                        <div class="form-text">
+                            格式要求：表格只有<strong>一列</strong>，第一行为表头「名称」，其余每一行是一个系统名（如「发电机」）。
+                            不传则先建空看板，后续可在发起手尾时直接输入新系统名。
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-light border small py-2">
+                        新建后系统会自动灌入默认隐患类别，可在<b>隐患类别维护</b>里增删改名。
+                    </div>
+                    {% endif %}
+                    <hr class="my-3">
+                    <div class="alert alert-light border small py-2 mb-2">责任单位默认人员（可选）：配置后，在该看板发起手尾时各手尾项选择对应单位即可自动填入对应默认人员，仍可修改。责任单位可自由增删 / 改名（历史记录快照不受影响）。</div>
+                    <div id="createAreaRows"></div>
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addCreateAreaRow('')"><svg class="ic me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>增加责任单位</button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">创建看板</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form action="/admin/boards/rename" method="POST" onsubmit="return submitOnce(this, true)">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.9 1.9 0 0 1 2.7 0l.3.3a1.9 1.9 0 0 1 0 2.7L8.2 18.8 4 20z"/></svg> 编辑看板</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="ship_id" id="renameId">
+                <input type="hidden" name="from_page" value="{{ 'devices' if DEVICE_PAGE else '' }}">
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">看板名称 *</label>
+                        <input type="text" name="name" id="renameName" class="form-control" placeholder="例如：2554船手尾看板" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">看板类型</label>
+                        <select name="btype" id="renameBtype" class="form-select">
+                            {% if DEVICE_PAGE %}
+                            <option value="{{ CAT_GROUP_LABELS.device|e }}" data-behavior="device">{{ CAT_GROUP_LABELS.device }}</option>
+                            {% else %}
+                            {% for c in BOARD_CATS if c.enabled and (IS_SAFETY or c.behavior == 'ship') %}
+                            <option value="{{ c.key|e }}" data-behavior="{{ c.behavior }}">{{ c.key }}</option>
+                            {% endfor %}
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">船号</label>
+                        <input type="text" name="ship_no" id="renameShipNo" class="form-control" placeholder="例如：2554（留空表示无船号）">
+                        <div class="form-text">V1.5 起可在此一并修改船号，不影响已发出的手尾记录。</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header brand-head">
+                <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg> 登录</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">手机号 / 账号</label>
+                    <input type="text" id="loginUsername" class="form-control" autocomplete="username" placeholder="输入手机号或管理员账号">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">密码</label>
+                    <input type="password" id="loginPassword" class="form-control" autocomplete="current-password" placeholder="请输入密码">
+                </div>
+                <div class="form-check mb-1">
+                    <input type="checkbox" class="form-check-input" id="loginRemember" checked>
+                    <label class="form-check-label small" for="loginRemember">记住我（{{ REMEMBER_DAYS }} 天内免登录，默认勾选）</label>
+                </div>
+                <div class="text-center mt-3">
+
+                    <span class="small text-muted">没有账号？请联系管理员开通</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-brand" onclick="doLogin()">登录</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="pwdModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header brand-head">
+                <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M11.2 11.8 20.5 2.5M16 7.5l3 3L21.5 8l-3-3"/></svg> 修改密码</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">原密码</label>
+                    <input type="password" id="pwdOld" class="form-control" autocomplete="current-password" placeholder="输入当前密码">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">新密码</label>
+                    <input type="password" id="pwdNew" class="form-control" autocomplete="new-password" placeholder="至少 8 位，含字母和数字">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">确认新密码</label>
+                    <input type="password" id="pwdNew2" class="form-control" autocomplete="new-password" placeholder="再次输入新密码">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-brand" onclick="doChangePassword()">确认修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+    // V1.6 A1：看板类型切换 —— 非产品船不需要船号，输入框自动置空并禁用
+    // V1.16.12：选「产品船」只填船号，看板名称自动按「船号+船」生成（可手改）
+    // 自动生成的名称记在输入框的 data-auto 上（存在 DOM 里，切类型也不会丢），
+    // 只有「名称为空 或 仍是上次自动生成的那个」时才覆盖，用户手改过的名字一律保留。
+    // V1.46：类别可以自定义，JS 一律读 option 的 data-behavior，不再比较中文类别名
+    function catBehavior() {
+        var el = document.getElementById('createBtype');
+        if (!el || !el.selectedOptions || !el.selectedOptions.length) return 'ship';
+        return el.selectedOptions[0].getAttribute('data-behavior') || 'ship';
+    }
+    function onBtypeChange() {
+        var el = document.getElementById('createBtype');
+        var bh = catBehavior();
+        var t = (el || {}).value || '';
+        var no = document.getElementById('createShipNo');
+        var hint = document.getElementById('createShipNoHint');
+        var nameHint = document.getElementById('createNameHint');
+        var lbl = document.getElementById('createShipNoLabel');
+        if (!no) return;
+        if (bh === 'ship') {
+            no.disabled = false;
+            no.placeholder = '例如：2554';
+            if (lbl) lbl.innerHTML = '船号 *';
+            if (hint) hint.textContent = '填船号后自动生成看板名称（如 2554船），名称还能自己改。';
+            if (nameHint) nameHint.textContent = '填船号后自动生成，可修改。';
+        } else {
+            no.value = '';
+            no.disabled = true;
+            no.placeholder = '该类别不需要船号';
+            if (lbl) lbl.innerHTML = '船号';
+            if (hint) hint.textContent = bh === 'device'
+                ? '「' + t + '」不需要船号，看板名称填具体名称即可。'
+                : '已选「' + t + '」，不需要船号，列表里显示「—」。';
+            if (nameHint) nameHint.textContent = bh === 'device'
+                ? '请填具体名称，例如：2号龙门吊。'
+                : '「' + t + '」请自己填看板名称。';
+        }
+        syncBoardNameFromNo();
+        if (typeof checkCreateNameDup === 'function') checkCreateNameDup();
+    }
+
+    // 产品船类：按船号自动带出看板名称（用户手改过就不再覆盖）
+    function syncBoardNameFromNo() {
+        var bh = catBehavior();
+        var no = document.getElementById('createShipNo');
+        var nm = document.getElementById('createBoardName');
+        if (!no || !nm) return;
+        var auto = nm.dataset.auto || '';
+        if (bh !== 'ship') {
+            if (nm.value === auto) nm.value = '';
+            nm.dataset.auto = '';
+            return;
+        }
+        var v = (no.value || '').trim();
+        if (!v) { if (nm.value === auto) { nm.value = ''; nm.dataset.auto = ''; } return; }
+        var gen = v + '船';
+        if (!nm.value || nm.value === auto) { nm.value = gen; nm.dataset.auto = gen; }
+    }
+
+    // 提交前校验：产品船类必须填船号
+    function checkCreateBoard() {
+        var bh = catBehavior();
+        var no = document.getElementById('createShipNo');
+        if (bh === 'ship' && no && !(no.value || '').trim()) {
+            if (window.showToast) window.showToast('请先填写船号');
+            no.focus();
+            return false;
+        }
+        var nmEl = document.getElementById('createBoardName');
+        var nm = ((nmEl || {}).value || '').trim();
+        if (!nm) {
+            if (window.showToast) window.showToast('请填写看板名称');
+            if (nmEl) nmEl.focus();
+            return false;
+        }
+        if (typeof boardNameExists === 'function' && boardNameExists(nm)) {
+            if (window.showToast) window.showToast('已存在同名看板「' + nm + '」，请换个名称');
+            else alert('已存在同名看板「' + nm + '」，请换个名称');
+            if (nmEl) nmEl.focus();
+            return false;
+        }
+        return true;
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        onBtypeChange();
+        // V1.46：/safety?cat=<类别> 直接落到对应筛选
+        if (typeof setCat === 'function' && typeof INIT_CAT === 'string' && INIT_CAT !== 'all') setCat(INIT_CAT);
+    });
+
+</script>
+<script>
+    const USER_ROLE = '{{ user_role }}';
+    // V1.16.13：本业务档已存在的看板名（前端先拦同名；后端 admin_create_board 还有硬校验兜底）
+    const EXISTING_BOARD_NAMES = [{% for s in ships %}{{ s.name|tojson }},{% endfor %}];
+    function boardNameExists(nm) {
+        const t = String(nm == null ? '' : nm).trim().toLowerCase();
+        if (!t) return false;
+        return EXISTING_BOARD_NAMES.some(function (n) {
+            return String(n == null ? '' : n).trim().toLowerCase() === t;
+        });
+    }
+    // 输入看板名即时提示「已存在同名」（不阻断输入，提交时再硬拦一次）
+    function checkCreateNameDup() {
+        const el = document.getElementById('createBoardName');
+        const hint = document.getElementById('createNameHint');
+        if (!el) return false;
+        const nm = (el.value || '').trim();
+        const dup = boardNameExists(nm);
+        const t = (document.getElementById('createBtype') || {}).value || '';
+        const bh = (typeof catBehavior === 'function') ? catBehavior() : 'ship';
+        if (hint) {
+            hint.textContent = dup
+                ? '已存在同名看板「' + nm + '」，请换个名称。'
+                : (bh === 'device' ? '请填具体名称，例如：2号龙门吊。'
+                   : (bh === 'ship' ? '填船号后自动生成，可修改。'
+                      : '「' + t + '」请自己填看板名称。'));
+            hint.classList.toggle('text-danger', dup);
+            hint.classList.toggle('fw-bold', dup);
+        }
+        return dup;
+    }
+    const ROLE_LABELS = {'super_admin': '超级管理员', 'debug_sup': '调试上级责任人', 'debug_user': '调试责任人'};
+    let LOGIN_STATE = { logged_in: false, username: '', role: '', role_label: '', phone: '' };
+
+    // V1.4.5 线性图标库（stroke=currentColor，随文字颜色，避免 emoji 花哨）
+    const IC = {
+        user: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5c1.6-3.4 4.3-5 7.5-5s5.9 1.6 7.5 5"/></svg>',
+        users: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.8 20.2c1.4-3 3.7-4.4 6.2-4.4s4.8 1.4 6.2 4.4"/><path d="M15.6 4.9a3.4 3.4 0 0 1 0 6.2M17.6 15.9c2 .8 3.3 2.2 3.9 4.1"/></svg>',
+        folder: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a2 2 0 0 1 2-2h3.6l2 2H18.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7z"/></svg>',
+        clock: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+        key: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M11.2 11.8 20.5 2.5M16 7.5l3 3L21.5 8l-3-3"/></svg>',
+        lock: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
+        userPlus: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="3.6"/><path d="M5 20c1.5-3.2 3.9-4.7 6.5-4.7M18 8v6M15 11h6"/></svg>',
+        trash: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>'
+    };
+
+    // V1.4.5 防重复提交：校验通过后立即禁用提交按钮（与后端 60s 幂等窗口双保险）
+    function submitOnce(form, valid) {
+        if (!valid) return false;
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) {
+            if (btn.disabled) {
+                alert('正在提交中，请勿重复点击…');
+                return false;
+            }
+            btn.disabled = true;
+            btn.dataset.origHtml = btn.innerHTML;
+            btn.innerHTML = '提交中…';
+        }
+        return true;
+    }
+
+    function renderLoginArea() {
+        const area = document.getElementById('loginArea');
+        if (LOGIN_STATE.logged_in) {
+            const isMobile = window.innerWidth < 768;
+            // 用户名一行、操作按钮一行（flex-wrap），避免超管菜单过长挤成一团
+            let html = '<div class="d-inline-flex flex-column gap-1 ' + (isMobile ? 'align-items-center' : 'align-items-end') + '">';
+            html += '<span class="login-user fw-bold">' + IC.user + ' <span>' + escapeHtml(LOGIN_STATE.username) + '</span>';
+            if (LOGIN_STATE.role_label) {
+                html += ' <span class="badge-soft"><span class="dot"></span>' + escapeHtml(LOGIN_STATE.role_label) + '</span>';
+            }
+            html += '</span>';
+            html += '<div class="d-flex flex-wrap gap-1 ' + (isMobile ? 'justify-content-center' : 'justify-content-end') + '">';
+            html += '<a href="/my" class="btn btn-outline-primary btn-sm">' + IC.folder + ' 我的</a>';
+            html += '<a href="/syslists" class="btn btn-outline-primary btn-sm">' + IC.folder + ' 系统清单</a>';
+            // V1.16.6：安全档不再有这个设置入口 —— 由服务端按业务档直接把这段裁掉
+            // （不用 pathname 判断：那样在 /safety 之外的页面会漏出一个指向已下线地址的死按钮）
+            {% if not IS_SAFETY %}
+            if (LOGIN_STATE.role === 'super_admin') {
+                html += '<a href="/admin/users" class="btn btn-outline-primary btn-sm">' + IC.users + ' 用户管理</a>';
+                html += '<a href="/admin/thresholds" class="btn btn-outline-primary btn-sm">' + IC.clock + ' 提醒时间</a>';
+            }
+            {% endif %}
+            html += '<button class="btn btn-outline-secondary btn-sm" onclick="showPwdModal()">' + IC.key + ' 修改密码</button>';
+            html += '<button class="btn btn-outline-secondary btn-sm" onclick="doLogout()">退出</button>';
+            html += '</div></div>';
+            area.innerHTML = html;
+        } else {
+            // 🔴 V1.16.39：未登录访客不再出现「注册」按钮（开账号由管理员在用户管理页做）
+            area.innerHTML = '<div class="d-flex flex-wrap gap-1 justify-content-end">' +
+                '<button class="btn btn-brand btn-sm" onclick="showLoginModal()">' + IC.lock + ' 登录</button></div>';
+        }
+    }
+
+    async function checkSession() {
+        try {
+            const resp = await fetch('/api/session');
+            const data = await resp.json();
+            LOGIN_STATE = {
+                logged_in: !!data.logged_in,
+                username: data.username || '',
+                role: data.role || '',
+                role_label: data.role_label || '',
+                phone: data.phone || ''
+            };
+        } catch (e) {
+            LOGIN_STATE = { logged_in: false, username: '', role: '', role_label: '', phone: '' };
+        }
+        renderLoginArea();
+        const saved = localStorage.getItem('shipyard_login_user');
+        if (saved) document.getElementById('loginUsername').value = saved;
+    }
+
+    function showLoginModal() {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('loginModal')).show();
+    }
+
+    async function doLogin() {
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const remember = document.getElementById('loginRemember').checked;
+        if (!username || !password) { showToast('请输入账号和密码', 'warn'); return; }
+        try {
+            const resp = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password, remember: remember })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                LOGIN_STATE = { logged_in: true, username: data.username, role: data.role, role_label: data.role_label, phone: username };
+                if (remember) localStorage.setItem('shipyard_login_user', username);
+                else localStorage.removeItem('shipyard_login_user');
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                location.reload();
+            } else {
+                showToast(data.msg || '登录失败', 'err');
+            }
+        } catch (e) {
+            showToast('登录请求失败：' + e.message, 'err');
+        }
+    }
+
+    async function doLogout() {
+        try { await fetch('/logout', { method: 'POST' }); } catch (e) {}
+        location.reload();
+    }
+
+    // ================= 修改密码 =================
+    function showPwdModal() {
+        ['pwdOld', 'pwdNew', 'pwdNew2'].forEach(id => document.getElementById(id).value = '');
+        const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('pwdModal'));
+        modal.show();
+        setTimeout(() => document.getElementById('pwdOld').focus(), 300);
+    }
+
+    async function doChangePassword() {
+        const oldPwd = document.getElementById('pwdOld').value;
+        const newPwd = document.getElementById('pwdNew').value;
+        const newPwd2 = document.getElementById('pwdNew2').value;
+        if (!oldPwd || !newPwd) { showToast('请填写原密码和新密码', 'warn'); return; }
+        if (newPwd.length < 8 || !(/[a-zA-Z]/.test(newPwd) && /\d/.test(newPwd))) {
+            showToast('新密码至少 8 位，且必须同时包含字母和数字', 'warn'); return;
+        }
+        if (newPwd !== newPwd2) { showToast('两次输入的新密码不一致', 'warn'); return; }
+        if (newPwd === oldPwd) { showToast('新密码不能与原密码相同', 'warn'); return; }
+        if (!confirm('确认修改密码吗？')) return;
+        try {
+            const resp = await fetch('/change_password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('pwdModal')).hide();
+                showToast(data.msg || '密码修改成功', 'ok');
+            } else {
+                showToast(data.msg || '修改失败', 'err');
+            }
+        } catch (e) {
+            showToast('请求失败：' + e.message, 'err');
+        }
+    }
+
+    function showCreateModal() {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('createModal')).show();
+        // V1.16.13：打开时刷新一次「已选人员」汇总（并清掉上次遗留的同名红字提示）
+        setTimeout(function () { checkCreateNameDup(); }, 260);
+    }
+
+    function showRenameModal(btn) {
+        document.getElementById('renameId').value = btn.dataset.id;
+        document.getElementById('renameName').value = btn.dataset.name || '';
+        document.getElementById('renameShipNo').value = btn.dataset.shipNo || '';
+        var _bt = document.getElementById('renameBtype');
+        if (_bt) _bt.value = btn.dataset.btype || '产品船';
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('renameModal')).show();
+        setTimeout(() => {
+            const input = document.getElementById('renameName');
+            input.focus();
+            input.select();
+        }, 300);
+    }
+
+    // ===== V1.45 删除看板：用页面内确认层，不用原生 confirm（手机 WebView 会直接吞掉，
+    //        表现就是「点删除没任何反应」）；fetch 提交，失败给明确原因，不静默 =====
+    var CAN_DELETE = {{ 'true' if can_delete else 'false' }};
+    var _v145Id = 0;
+    var DEVICE_PAGE = {{ 'true' if DEVICE_PAGE else 'false' }};
+
+    function v145Note(msg, ok) {
+        var n = document.getElementById('v145Note');
+        if (!n) return;
+        n.textContent = msg;
+        n.className = 'v145-note on ' + (ok ? 'ok' : 'err');
+        n.scrollIntoView({ block: 'center' });
+    }
+    function v145Close() {
+        var m = document.getElementById('v145Mask');
+        if (m) m.className = 'v145-mask';
+    }
+    function confirmDelete(shipId, shipName, isDefault, total) {
+        if (!CAN_DELETE) {
+            v145Note('删除看板需要管理员权限：请先在「我的」里认领身份，或用超级管理员账号登录。', false);
+            return;
+        }
+        let tip = '确定要删除看板「' + shipName + '」吗？\n该看板下的全部记录与清单将被一并删除，且不可恢复！';
+        if (isDefault) {
+            tip += (total <= 1)
+                ? '\n（这是唯一看板，删除后系统暂无看板，重启服务时会自动重建默认看板。）'
+                : '\n删除后系统会自动把第一个剩余看板设为默认。';
+        }
+        _v145Id = shipId;
+        document.getElementById('v145DelMsg').textContent = tip;
+        document.getElementById('v145Mask').className = 'v145-mask on';
+    }
+    async function v145DelDo() {
+        const btn = document.getElementById('v145DelOk');
+        btn.disabled = true; btn.textContent = '删除中…';
+        const fd = new FormData();
+        fd.append('ship_id', String(_v145Id));
+        fd.append('format', 'json');
+        if (DEVICE_PAGE) fd.append('from_page', 'devices');
+        try {
+            const r = await fetch('/admin/boards/delete', { method: 'POST', body: fd });
+            const d = await r.json().catch(() => ({ ok: false, msg: '服务器返回异常(' + r.status + ')' }));
+            if (d.ok) {
+                v145Close();
+                const sep = (d.home || '/boards').indexOf('?') >= 0 ? '&' : '?';
+                window.location.href = (d.home || '/boards') + sep + 'deleted=1';
+                return;
+            }
+            v145Close();
+            v145Note(d.msg || '删除失败', false);
+        } catch (e) {
+            v145Close();
+            v145Note('删除失败：网络异常，请重试。', false);
+        }
+        btn.disabled = false; btn.textContent = '确认删除';
+    }
+    (function () {
+        if (new URLSearchParams(window.location.search).get('deleted') === '1') {
+            v145Note('看板已删除。', true);
+        }
+    })();
+
+    // ================= 人员联想选人（建看板时配置默认主管/作业长） =================
+    const STAFF_OPTIONS = {{ staff_list | tojson }};
+    let STAFF_ITEMS = STAFF_OPTIONS.map(s => ({
+        label: s['姓名'] || '',
+        sublabel: [s['公司'], s['一级部门'], s['二级部门'], s['作业区'], s['电话']].filter(Boolean).join(' / '),
+        value: [s['公司'], s['一级部门'], s['二级部门'], s['作业区'], s['姓名'], s['电话']].join(' - ')
+    })).filter(it => it.label);
+    const STAFF_BY_PHONE = {};
+    STAFF_OPTIONS.forEach(s => { if (s['电话']) STAFF_BY_PHONE[s['电话']] = s; });
+    (function loadChzUsers() {
+        fetch('/api/chz_users').then(r => r.json()).then(d => {
+            if (d && d.ok && Array.isArray(d.items) && d.items.length) {
+                const items = d.items.filter(it => it.name && it.phone);
+                const merged = {};
+                STAFF_ITEMS.forEach(it => { const ph = it.value.split(' - ').slice(-1)[0]; merged[ph] = it; });
+                items.forEach(it => {
+                    if (!merged[it.phone]) {
+                        const staff = STAFF_BY_PHONE[it.phone];
+                        merged[it.phone] = staff
+                            ? { label: it.name, sublabel: [staff['公司'], staff['一级部门'], staff['二级部门'], staff['作业区'], it.phone].filter(Boolean).join(' / '), value: [staff['公司'], staff['一级部门'], staff['二级部门'], staff['作业区'], it.name, it.phone].filter(Boolean).join(' - ') }
+                            : { label: it.name, sublabel: [it.code, it.phone].filter(Boolean).join(' / '), value: [it.name, it.phone].join(' - ') };
+                    }
+                });
+                STAFF_ITEMS = Object.values(merged);
+            }
+        }).catch(() => {});
+    })();
+
+    // ===== V1.4.4 标签式选人工具 =====
+    function _staffPhone(v) {
+        const m = String(v || '').match(/(1[3-9]\d{9})/);
+        return m ? m[1] : '';
+    }
+    function _staffLabel(v) {
+        v = String(v || '').trim();
+        if (!v) return '';
+        const ph = _staffPhone(v);
+        const arr = STAFF_ITEMS || [];
+        if (ph) {
+            for (let i = 0; i < arr.length; i++) {
+                if ((arr[i].value || '').indexOf(ph) >= 0) return arr[i].label || '';
+            }
+        }
+        const seg = String(v).split(',').pop() || v;
+        const ps = seg.split(' - ').map(s => s.trim()).filter(Boolean);
+        return ps.length >= 2 ? (ps[ps.length - 2] || ps[ps.length - 1]) : (ps[0] || v);
+    }
+    function syncStaffPick(input) {
+        try { if (input && typeof input.__renderPickChip === 'function') input.__renderPickChip(); } catch (e) { }
+    }
+    // 联想候选"点一下才选中"：手指在列表上滑动/滚动绝不误选（移动>12px 视为滑动忽略）
+    function bindTapCommit(el, commitFn) {
+        if (window.PointerEvent) {
+            el.addEventListener('pointerdown', function (e) {
+                el.__tapX = e.clientX; el.__tapY = e.clientY;
+            });
+            el.addEventListener('click', function (e) {
+                if (el.__tapX !== undefined &&
+                    (Math.abs(e.clientX - el.__tapX) > 12 || Math.abs(e.clientY - el.__tapY) > 12)) {
+                    el.__tapX = undefined; return;
+                }
+                el.__tapX = undefined;
+                e.preventDefault(); e.stopPropagation();
+                commitFn(e);
+            });
+        } else {
+            el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commitFn(e); });
+        }
+    }
+
+    function attachStaffSuggest(input) {
+        const wrap = document.createElement('div'); wrap.className = 'suggest-wrap';
+        input.parentNode.insertBefore(wrap, input); wrap.appendChild(input); input.setAttribute('autocomplete', 'off');
+        const dd = document.createElement('div'); dd.className = 'suggest-dropdown'; wrap.appendChild(dd);
+
+        // ===== V1.4.4 标签式选人：选完折叠成"姓名芯片"，点 × 即删、点芯片重选 =====
+        const chipBox = document.createElement('div');
+        chipBox.className = 'pick-chip-row';
+        chipBox.style.display = 'none';
+        wrap.insertBefore(chipBox, input);
+        function renderPickChip() {
+            const val = (input.value || '').trim();
+            const ph = _staffPhone(val);
+            if (ph && val) {
+                chipBox.innerHTML = '';
+                const pill = document.createElement('span');
+                pill.className = 'pick-chip-pill';
+                const nm = document.createElement('span');
+                nm.className = 'pick-chip-name';
+                nm.textContent = _staffLabel(val);
+                const x = document.createElement('span');
+                x.className = 'pick-chip-x';
+                x.textContent = '×';
+                x.title = '删除该人员';
+                x.addEventListener('click', function (e) { e.stopPropagation(); clearPick(false); });
+                pill.addEventListener('click', function (e) { if (e.target === x) return; clearPick(true); });
+                pill.appendChild(nm); pill.appendChild(x);
+                chipBox.appendChild(pill);
+                chipBox.style.display = 'flex';
+                input.style.display = 'none';
+            } else {
+                chipBox.style.display = 'none';
+                input.style.display = '';
+            }
+        }
+        function clearPick(reopen) {
+            input.value = '';
+            if (input.dataset) delete input.dataset.picked;
+            renderPickChip();
+            if (reopen) { try { input.focus(); } catch (e) { } }
+        }
+        input.__renderPickChip = renderPickChip;
+        renderPickChip();
+
+        function hide() { dd.style.display = 'none'; dd.innerHTML = ''; }
+        dd.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+        function filterList() {
+            const q = input.value.trim().toLowerCase();
+            const items = STAFF_ITEMS;
+            let matched = q ? items.filter(it => (it.label + ' ' + it.sublabel + ' ' + it.value).toLowerCase().includes(q)) : items;
+            if (!matched.length) { dd.innerHTML = '<div class="suggest-empty">无匹配选项</div>'; dd.style.display = 'block'; return; }
+            dd.innerHTML = '';
+            matched.slice(0, 20).forEach(it => {
+                const div = document.createElement('div'); div.className = 'suggest-item';
+                div.innerHTML = it.sublabel ? '<div class="suggest-label">' + escapeHtml(it.label) + '</div><div class="suggest-sub">' + escapeHtml(it.sublabel) + '</div>' : '<div class="suggest-label">' + escapeHtml(it.label) + '</div>';
+                // V1.4.4：点一下才选中（滑动/滚动绝不误选）
+                bindTapCommit(div, function () {
+                    _lastSuggestPickAt = Date.now();
+                    input.value = it.value;
+                    input.dataset.picked = '1';
+                    renderPickChip();
+                    try { input.blur(); } catch (e) { }
+                    setTimeout(hide, 400);
+                });
+                dd.appendChild(div);
+            });
+            dd.style.display = 'block';
+        }
+        input.addEventListener('input', function () {
+            if (!input.value.trim()) delete input.dataset.picked;
+            filterList();
+        });
+        input.addEventListener('focus', filterList);
+        input.addEventListener('blur', function () { setTimeout(hide, 150); });
+        document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) hide(); });
+    }
+
+    // ===== V1.4.3 三合一检索升级：从船海智云通讯录/人员台账全量检索（不再只搜已注册账号） =====
+    // V1.4.4 opts.multi=true → 标签式两段提交：点候选先进"待确认"，点【确认添加】才入值；
+    // 已选以芯片展示（绿=已确认可×删，橙=待确认），提交内容保存在原 input（逗号分隔，按手机号去重）。
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    let _lastSuggestPickAt = 0;
+
+    function attachUserSuggest(input, opts) {
+        opts = opts || {};
+        const maxShow = opts.max || 50;
+        // 多选芯片模式：原 input 转为提交载体（hidden），另建可见搜索框，避免"搜索词"与"提交值"互相污染
+        let submitInput = input;
+        if (opts.multi) {
+            submitInput = document.createElement('input');
+            submitInput.type = 'hidden';
+            submitInput.name = input.name || '';
+            submitInput.value = input.value || '';
+            submitInput.className = input.className || '';
+            input.parentNode.insertBefore(submitInput, input);
+            input.removeAttribute('name');
+            input.removeAttribute('required');
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'suggest-wrap';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        input.setAttribute('autocomplete', 'off');
+        const dd = document.createElement('div');
+        dd.className = 'suggest-dropdown';
+        wrap.appendChild(dd);
+        function hide() { dd.style.display = 'none'; dd.innerHTML = ''; }
+        dd.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+
+        // ---- V1.4.4 多选芯片（仅 multi 模式使用）----
+        let chipsWrap = null, bar = null, committed = [], pending = [];
+        function chipPhone(it) { const m = String(it).match(/(1[3-9]\d{9})/); return m ? m[1] : ''; }
+        function parseExisting() {
+            committed = [];
+            String(submitInput.value || '').split(',').forEach(function (seg) {
+                seg = (seg || '').trim();
+                const ph = chipPhone(seg);
+                if (ph) committed.push({ phone: ph, raw: seg });
+            });
+        }
+        function renderChips() {
+            if (!chipsWrap) return;
+            chipsWrap.innerHTML = '';
+            committed.forEach(function (c) {
+                const sp = document.createElement('span');
+                sp.className = 'uc-chip uc-ok';
+                sp.innerHTML = '<span class="uc-chip-nm"></span><span class="uc-chip-x">×</span>';
+                sp.querySelector('.uc-chip-nm').textContent = _staffLabel(c.raw);
+                sp.querySelector('.uc-chip-x').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    committed = committed.filter(x => x.phone !== c.phone);
+                    syncValue();
+                });
+                chipsWrap.appendChild(sp);
+            });
+            pending.forEach(function (c) {
+                const sp = document.createElement('span');
+                sp.className = 'uc-chip uc-pending';
+                sp.innerHTML = '<span class="uc-chip-nm"></span><span class="uc-chip-x">×</span>';
+                sp.querySelector('.uc-chip-nm').textContent = _staffLabel(c.raw);
+                sp.querySelector('.uc-chip-x').addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    pending = pending.filter(x => x.phone !== c.phone);
+                    renderChips(); updateBar();
+                });
+                chipsWrap.appendChild(sp);
+            });
+            chipsWrap.style.display = (committed.length || pending.length) ? 'flex' : 'none';
+            // V1.16.13：每次芯片变化都通知外部（用于弹窗顶部「已选人员」汇总）
+            if (typeof opts.onChange === 'function') {
+                try { opts.onChange(committed.slice(), pending.slice()); } catch (e) { }
+            }
+        }
+        function updateBar() {
+            if (!bar) return;
+            bar.classList.toggle('show', pending.length > 0);
+            const cnt = bar.querySelector('.uc-count');
+            if (cnt) cnt.textContent = pending.length ? '待确认 ' + pending.length + ' 人' : '';
+        }
+        function syncValue() {
+            const seen = new Set(); const kept = [];
+            committed.forEach(function (c) {
+                if (seen.has(c.phone)) return; seen.add(c.phone); kept.push(c.raw);
+            });
+            submitInput.value = kept.join(', ');
+            renderChips(); updateBar();
+        }
+        function confirmPending() {
+            if (!pending.length) return;
+            const seen = new Set(); committed.forEach(c => seen.add(c.phone));
+            pending.forEach(function (c) { if (!seen.has(c.phone)) { seen.add(c.phone); committed.push(c); } });
+            pending = [];
+            syncValue();
+            hide();
+            try { input.blur(); } catch (e) { }
+        }
+        if (opts.multi) {
+            chipsWrap = document.createElement('div');
+            chipsWrap.className = 'uc-chips';
+            chipsWrap.style.display = 'none';
+            wrap.insertBefore(chipsWrap, input);
+            bar = document.createElement('div');
+            bar.className = 'uc-confirm-bar';
+            bar.innerHTML = '<span class="uc-count"></span>' +
+                '<button type="button" class="btn btn-outline-secondary btn-sm uc-clear">清空</button>' +
+                '<button type="button" class="btn btn-primary btn-sm uc-ok">确认添加</button>';
+            wrap.insertBefore(bar, dd);
+            bar.querySelector('.uc-clear').addEventListener('click', function (e) {
+                e.preventDefault(); pending = []; renderChips(); updateBar();
+            });
+            bar.querySelector('.uc-ok').addEventListener('click', function (e) {
+                e.preventDefault(); confirmPending();
+            });
+            parseExisting(); syncValue();
+        }
+
+        function filterList() {
+            const q = input.value.trim().toLowerCase();
+            const src = STAFF_ITEMS || [];
+            let matched;
+            if (!q) {
+                matched = opts.showAll ? src : [];
+            } else {
+                matched = src.filter(it => (it.label + ' ' + it.sublabel + ' ' + it.value).toLowerCase().includes(q));
+            }
+            if (!q && !opts.showAll) { hide(); return; }
+            if (!matched.length) {
+                dd.innerHTML = '<div class="suggest-empty">' + (q ? '通讯录中无匹配人员' : '通讯录加载中，请稍候再试') + '</div>';
+                dd.style.display = 'block';
+                return;
+            }
+            dd.innerHTML = '';
+            matched.slice(0, maxShow).forEach(it => {
+                const div = document.createElement('div');
+                div.className = 'suggest-item';
+                div.innerHTML = it.sublabel
+                    ? '<div class="suggest-label">' + escapeHtml(it.label) + '</div><div class="suggest-sub">' + escapeHtml(it.sublabel) + '</div>'
+                    : '<div class="suggest-label">' + escapeHtml(it.label) + '</div>';
+                // V1.4.4：点一下才加入（滑动/滚动列表绝不误选）
+                bindTapCommit(div, function () {
+                    _lastSuggestPickAt = Date.now();
+                    const ph = chipPhone(it.value);
+                    if (!ph) return;
+                    if (opts.multi) {
+                        if (committed.some(c => c.phone === ph) || pending.some(c => c.phone === ph)) return;
+                        pending.push({ phone: ph, raw: (it.value || '').trim() });
+                        renderChips(); updateBar();
+                    } else {
+                        input.value = it.value;
+                        if (opts.onPick) opts.onPick(it);
+                        setTimeout(hide, 400);
+                    }
+                });
+                dd.appendChild(div);
+            });
+            dd.style.display = 'block';
+        }
+        input.addEventListener('input', filterList);
+        input.addEventListener('focus', filterList);
+        input.addEventListener('blur', function () { setTimeout(hide, 150); });
+        document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) hide(); });
+    }
+
+    // ===== V1.3 新建看板弹窗：动态责任单位行 =====
+    function renderCreateAreaRows() {
+        const container = document.getElementById('createAreaRows');
+        if (!container) return;
+        container.innerHTML = '';
+        (AREA_UNITS || []).slice(0, 4).forEach(function (n) { addCreateAreaRow(n); });
+    }
+
+    // 删除"责任单位"配置卡片：防移动端"幽灵点击"（刚点选完人员后 600ms 内触发的一律忽略）
+    function removeAreaConfigRow(btn) {
+        if (Date.now() - _lastSuggestPickAt < 600) return;
+        const card = btn.closest('.card');
+        if (card) card.remove();
+    }
+
+    // V1.37：责任单位固定名单（后端 _AREA_UNITS 注入），不再允许自由输入人名 / 外号
+    const AREA_UNITS = {{ area_units|tojson }};
+    function createAreaOptionsHtml() {
+        return (AREA_UNITS || []).map(function (n) {
+            return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>';
+        }).join('');
+    }
+    function addCreateAreaRow(name) {
+        const container = document.getElementById('createAreaRows');
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = 'card mb-2 border-primary';
+        row.innerHTML = `
+            <div class="card-header bg-primary text-white py-1 d-flex justify-content-between align-items-center">
+                <span class="fw-bold small">责任单位</span>
+                <button type="button" class="btn btn-sm btn-outline-light" onclick="removeAreaConfigRow(this)">${IC.trash} 删除</button>
+            </div>
+            <div class="card-body py-2">
+                <div class="mb-2">
+                    <label class="form-label small mb-0 fw-bold">责任单位名称</label>
+                    <select name="area_name" class="form-control form-control-sm" required><option value="">— 选择责任单位 —</option>${createAreaOptionsHtml()}</select>
+                </div>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-0">默认责任人</label>
+                        <input type="text" name="sup_value" class="form-control form-control-sm user-suggest" placeholder="姓名/手机号/工号点选（可不填）">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-0">责任单位领导</label>
+                        <input type="text" name="foreman_value" class="form-control form-control-sm user-suggest" placeholder="姓名/手机号/工号点选（可不填）">
+                    </div>
+                </div>
+            </div>`;
+        container.appendChild(row);
+        const _unitSel = row.querySelector('select[name="area_name"]');
+        if (_unitSel) _unitSel.value = name || '';
+        row.querySelectorAll('.user-suggest').forEach(function (inp) {
+            attachUserSuggest(inp, { multi: true });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        checkSession();
+        document.querySelectorAll('.staff-pick').forEach(function (input) { attachStaffSuggest(input); });
+        renderCreateAreaRows();
+    });
+</script>
+<div id="v145Mask" class="v145-mask" onclick="if(event.target===this)v145Close()">
+    <div class="v145-dlg">
+        <h3>&#9888;&#65039; 删除看板</h3>
+        <p id="v145DelMsg"></p>
+        <div class="v145-btns">
+            <button type="button" onclick="v145Close()">取消</button>
+            <button type="button" class="v145-go" id="v145DelOk" onclick="v145DelDo()">确认删除</button>
+        </div>
+    </div>
+</div>
+</body>
+</html>

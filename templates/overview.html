@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>{{ L.title }} - 总装船舶综合业务平台</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<script>
+  // 尽早套用主题，避免闪白（与 portal.html 一致）
+  try {
+    var t = localStorage.getItem('shipyard_theme');
+    if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+</script>
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+<script src="/static/js/chart.umd.min.js"></script>
+<link href="/static/css/theme.css" rel="stylesheet">
+<link href="/static/css/v16.css" rel="stylesheet">
+<script src="/static/js/theme.js" defer></script>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--v16-bg); color: var(--v16-txt);
+         font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+         font-size: var(--fs-body); padding-bottom: 32px; }
+  a { text-decoration: none; color: inherit; }
+  .ov-wrap { max-width: 1240px; margin: 0 auto; }
+
+  /* 顶栏 */
+  .ov-head { background: var(--v16-pri); color: #fff; padding: 14px 14px 12px; position: relative; }
+  /* V1.67：导出按钮回到蓝色顶栏最右上角（白描边透明款，蓝底上才看得见） */
+  .ov-export { position: absolute; right: 14px; top: 14px; font-size: var(--fs-sub);
+               padding: 6px 12px; border-radius: var(--rd-pill); border: 1px solid rgba(255,255,255,.6);
+               color: #fff; background: rgba(255,255,255,.14); cursor: pointer; white-space: nowrap; }
+  .ov-export:active { opacity: .75; }
+  /* V1.48-s3：导出网址条 —— 先给网址，再点网址下载 */
+  .ov-linkbar { display: none; padding: 12px 14px; background: var(--v16-card);
+                border: 1px solid var(--v16-line); border-radius: var(--rd-card, 10px);
+                margin: 10px 14px 0; }
+  .ov-linkbar.on { display: block; }
+  .ov-linkbar-t { display: flex; align-items: center; justify-content: space-between;
+                  font-size: var(--fs-sub); }
+  .ov-linkbar-x { border: 0; background: transparent; color: var(--v16-txt);
+                  font-size: 21px; line-height: 1; padding: 0 4px; cursor: pointer; }
+  .ov-linkbar-hint { font-size: var(--fs-xs); color: var(--v16-sub);
+                     line-height: 1.55; margin: 4px 0 8px; }
+  .ov-link-url { font-size: var(--fs-xs); line-height: 1.6; word-break: break-all;
+                 padding: 9px 10px; border: 1px solid var(--v16-line);
+                 border-radius: var(--rd-card, 10px); background: var(--v16-bg);
+                 color: var(--v16-txt); -webkit-user-select: all; user-select: all; }
+  .ov-linkbar-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .ov-btn { flex: 1; padding: 8px 10px; font-size: var(--fs-sub); cursor: pointer;
+            border-radius: var(--rd-card, 10px); border: 1px solid var(--v16-line);
+            background: var(--v16-card); color: var(--v16-txt); }
+  .ov-btn.pri { background: var(--v16-pri); border-color: var(--v16-pri);
+                color: #fff; font-weight: 700; }
+  .ov-head h1 { font-size: var(--fs-h1); font-weight: 700; margin: 0; line-height: 1.3; }
+
+  /* 顶部功能 Tab（需求三：常用功能置顶、横向、当前项高亮） */
+  .ov-tabs { display: flex; gap: var(--sp-2); overflow-x: auto; padding: 10px 14px;
+             background: var(--v16-card); border-bottom: 1px solid var(--v16-line);
+             -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .ov-tabs::-webkit-scrollbar { display: none; }
+  .ov-tab { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+            min-height: 36px; padding: 0 15px; border-radius: var(--rd-pill);
+            border: 1px solid var(--v16-line); background: var(--v16-graybg);
+            color: var(--v16-txt); font-size: var(--fs-sub); font-weight: 600;
+            white-space: nowrap; cursor: pointer; }
+  .ov-tab.on { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+  .ov-tab:active { opacity: .8; }
+
+  .ov-sec { padding: 0 14px; margin-top: var(--sp-4); }
+  .ov-sec-t { font-size: var(--fs-h2); font-weight: 700; margin: 0 0 var(--sp-2);
+              display: flex; align-items: center; gap: 8px; line-height: 1.35; }
+  .ov-sec-t::before { content: ''; width: 3px; height: 15px; border-radius: 2px; background: var(--v16-pri); }
+  .ov-sec-t .note { font-size: var(--fs-xs); font-weight: 400; color: var(--v16-sub); margin-left: auto; }
+
+  /* 指标卡 */
+  .ov-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
+  .ov-kpi { background: var(--v16-card); border: 1px solid var(--v16-line);
+            border-radius: var(--rd-lg); padding: 12px 12px 11px; cursor: pointer; }
+  .ov-kpi .lb { font-size: var(--fs-xs); color: var(--v16-sub); white-space: nowrap; }
+  .ov-kpi .vl { font-size: 26px; font-weight: 800; line-height: 1.15; margin-top: 4px;
+                font-variant-numeric: tabular-nums; }
+  .ov-kpi .vl small { font-size: var(--fs-xs); font-weight: 600; color: var(--v16-sub); margin-left: 3px; }
+  .ov-kpi.warn .vl { color: var(--v16-bad); }
+  .ov-kpi.ok .vl { color: var(--v16-ok); }
+  .ov-kpi:active { border-color: var(--v16-pri); }
+
+  /* 图表 */
+  .ov-charts { display: grid; grid-template-columns: 1fr; gap: var(--sp-2); }
+  .ov-card { background: var(--v16-card); border: 1px solid var(--v16-line);
+             border-radius: var(--rd-lg); padding: 12px; }
+  .ov-card h3 { font-size: var(--fs-sub); font-weight: 700; margin: 0 0 8px; color: var(--v16-txt); }
+  .ov-cbox { position: relative; height: 210px; }
+  .ov-cbox.tall { height: 240px; }
+
+  /* 表格通用：横向滚动 + 首列 sticky */
+  .ov-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.ov-t { border-collapse: collapse; width: 100%; font-size: var(--fs-sub); }
+  table.ov-t th, table.ov-t td { padding: 9px 10px; border-bottom: 1px solid var(--v16-line);
+                                 white-space: nowrap; text-align: right; }
+  table.ov-t th { background: var(--v16-graybg); color: var(--v16-sub); font-weight: 700;
+                  position: sticky; top: 0; }
+  table.ov-t th:first-child, table.ov-t td:first-child { text-align: left; position: sticky; left: 0;
+                  background: var(--v16-card); z-index: 1; }
+  table.ov-t th:first-child { background: var(--v16-graybg); z-index: 2; }
+  table.ov-t tr.sum td { font-weight: 800; background: var(--v16-pri-l); border-top: 2px solid var(--v16-pri); }
+  table.ov-t tr.sum td:first-child { background: var(--v16-pri-l); }
+  table.ov-t td a { color: var(--v16-pri); font-weight: 600; }
+  .ov-num { font-variant-numeric: tabular-nums; }
+  .ov-tag { display: inline-block; padding: 1px 8px; border-radius: var(--rd-pill);
+            font-size: var(--fs-xs); font-weight: 700; white-space: nowrap; }
+  .ov-tag.ok { background: var(--v16-okbg); color: var(--v16-ok); }
+  .ov-tag.bad { background: var(--v16-badbg); color: var(--v16-bad); }
+  .ov-tag.mute { background: var(--v16-graybg); color: var(--v16-sub); }
+
+  /* 透视 / 筛选 */
+  .ov-ctrl { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+  .ov-ctrl select, .ov-ctrl input { font-size: var(--fs-sub); padding: 7px 9px;
+      border: 1px solid var(--v16-input); border-radius: var(--rd-sm);
+      background: var(--v16-card); color: var(--v16-txt); height: 34px; }
+  .ov-ctrl label { font-size: var(--fs-xs); color: var(--v16-sub); display: flex;
+      flex-direction: column; gap: 3px; }
+  .ov-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--sp-2); }
+  .ov-chip { font-size: var(--fs-xs); padding: 5px 12px; border-radius: var(--rd-pill);
+      border: 1px solid var(--v16-line); background: var(--v16-graybg);
+      color: var(--v16-txt); white-space: nowrap; cursor: pointer; }
+  .ov-chip.on { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+  .ov-hint { font-size: var(--fs-xs); color: var(--v16-sub); margin: 6px 0; }
+
+  /* 6S 诚实守信 */
+  .ov-6s { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-2); }
+  .ov-6s .ov-kpi { cursor: default; }
+  .ov-6s .wide { grid-column: 1 / -1; }
+  .ov-6s ol { margin: 6px 0 0; padding-left: 20px; font-size: var(--fs-sub); line-height: 1.7; }
+  .ov-6s ol li code { color: var(--v16-pri); font-weight: 700; }
+
+  /* 明细下钻 */
+  .ov-detail-row { font-size: var(--fs-sub); }
+  .ov-detail-row td:first-child { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+  .ov-empty { text-align: center; padding: 26px 12px; color: var(--v16-sub); font-size: var(--fs-sub); }
+  .ov-foot { text-align: center; font-size: var(--fs-xs); color: var(--v16-sub);
+             padding: 18px 14px 6px; line-height: 1.6; }
+
+  /* 桌面端：一律包在 min-width:768px 内 */
+  @media (min-width: 768px) {
+    .ov-head { padding: 20px 26px 18px; }
+    .ov-head h1 { font-size: 23px; }
+    .ov-tabs { padding: 12px 26px; gap: var(--sp-3); }
+    .ov-head .ov-export { right: 26px; top: 20px; }
+    .ov-tab { min-height: 38px; padding: 0 18px; }
+    .ov-sec { padding: 0 26px; margin-top: var(--sp-5); }
+    .ov-kpis { grid-template-columns: repeat(6, 1fr); gap: var(--sp-3); }
+    .ov-kpi { padding: 16px; }
+    .ov-kpi .vl { font-size: 30px; }
+    .ov-charts { grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+    /* V1.63：两个环状图排到同一列，上下对齐（原来一个右上、一个左下，斜着） */
+    .ov-charts > .ov-card:nth-child(1) { grid-column: 1; grid-row: 1; }
+    .ov-charts > .ov-card:nth-child(2) { grid-column: 2; grid-row: 1; }
+    .ov-charts > .ov-card:nth-child(3) { grid-column: 2; grid-row: 2; }
+    .ov-charts > .ov-card:nth-child(4) { grid-column: 1; grid-row: 2; }
+    .ov-cbox { height: 240px; }
+    .ov-6s { grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+    .ov-6s .wide { grid-column: 1 / -1; }
+    table.ov-t th, table.ov-t td { padding: 11px 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="ov-wrap">
+
+  <div class="ov-head">
+    <h1>{{ L.title }}</h1>
+    <button type="button" class="ov-export" onclick="exportExcel()">导出 Excel</button>
+  </div>
+
+  <div class="ov-linkbar" id="ovLinkBar">
+    <div class="ov-linkbar-t">
+      <b>导出网址已生成</b>
+      <button type="button" class="ov-linkbar-x" onclick="closeExportLink()" aria-label="关闭">&times;</button>
+    </div>
+    <div class="ov-linkbar-hint">已带上当前筛选条件。点「打开下载」导出 Excel；手机没反应就复制网址到浏览器打开，同事登录后也能打开。</div>
+    <div class="ov-link-url" id="ovLinkUrl"></div>
+    <div class="ov-linkbar-btns">
+      <button type="button" class="ov-btn pri" onclick="doDownload()">打开下载</button>
+      <button type="button" class="ov-btn" onclick="copyExportLink()">复制网址</button>
+    </div>
+  </div>
+
+  <!-- V1.67：Tab 恢复独立一行；两档各从门户独立入口进入 -->
+  <div class="ov-tabs" id="ovTabs">
+    {% if biz == 'safety' %}
+    <a class="ov-tab" href="{{ L.board_url }}">{{ L.board }}</a>
+    {% else %}
+    <span class="ov-tab on">数据总览</span>
+    {% endif %}
+    <a class="ov-tab" href="#ovPivot" onclick="return jump('ovPivot')">透视分析</a>
+    <a class="ov-tab" href="#ovDetail" onclick="return jump('ovDetail')">明细下钻</a>
+  </div>
+
+  <!-- ① 核心指标卡 -->
+  <div class="ov-sec">
+    <div class="ov-sec-t">核心指标<span class="note">点卡片看对应明细</span></div>
+    <div class="ov-kpis" id="ovKpis"></div>
+  </div>
+
+  <!-- ② 图表 -->
+  <div class="ov-sec">
+    <div class="ov-sec-t">统计分析</div>
+    <div class="ov-charts">
+      <div class="ov-card"><h3>各{{ L.scope_short }}{{ L.item }}数量对比</h3><div class="ov-cbox"><canvas id="cShip"></canvas></div></div>
+      <div class="ov-card ring"><h3>{{ L.cat }}分布</h3><div class="ov-cbox"><canvas id="cCat"></canvas></div></div>
+      <div class="ov-card ring"><h3>整改状态占比</h3><div class="ov-cbox"><canvas id="cState"></canvas></div></div>
+      <div class="ov-card"><h3>月度趋势</h3><div class="ov-cbox"><canvas id="cMonth"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ③ 汇总表 -->
+  <div class="ov-sec">
+    <div class="ov-sec-t">{{ L.scope_short }}数据汇总</div>
+    <div class="ov-card" style="padding:0;overflow:hidden">
+      <div class="ov-scroll">
+        <table class="ov-t" id="ovSummary">
+          <thead><tr>
+            <th>{{ L.scope_short }}</th><th>{{ L.item }}</th><th>{{ L.done }}</th>
+            <th>{{ L.open }}</th><th>{{ L.rate }}</th>
+            {% if biz == 'safety' %}<th>6S 得分</th>{% endif %}<th>下钻</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 透视 / 交叉表 -->
+  <div class="ov-sec" id="ovPivot">
+    <div class="ov-sec-t">透视分析</div>
+    <div class="ov-ctrl">
+      <select id="pvRow"><option value="ship">按{{ L.scope_short }}</option></select>
+      <select id="pvDim">
+        {% for d in D.dims %}<option value="{{ d.key }}">{{ d.label }}</option>{% endfor %}
+      </select>
+      <select id="pvState"><option value="">全部状态</option></select>
+    </div>
+    <div class="ov-card" style="padding:0;overflow:hidden">
+      <div class="ov-scroll"><table class="ov-t" id="pvTable"></table></div>
+    </div>
+    <div class="ov-hint" id="pvHint"></div>
+  </div>
+
+  {% if biz == 'safety' %}
+  <!-- ⑤ 6S 诚实守信指标（不造"问题总数/已整改/待处理"） -->
+  <div class="ov-sec">
+    <div class="ov-sec-t">产品船 6S 评分<span class="note">评分制，不是问题条目</span></div>
+    <div class="ov-6s" id="ov6s"></div>
+  </div>
+  {% endif %}
+
+  <!-- ⑥ 明细下钻 -->
+  <div class="ov-sec" id="ovDetail">
+    <div class="ov-sec-t">明细下钻<span class="note" id="dtCount"></span></div>
+    <div class="ov-chips" id="dtChips"></div>
+    <div class="ov-ctrl">
+      <label>{{ L.scope_short }}<select id="fShip"><option value="">全部</option></select></label>
+      <label>{{ L.cat }}<select id="fCat"><option value="">全部</option></select></label>
+      <label>关键词<input id="fKw" type="search" placeholder="描述 / 船号"></label>
+    </div>
+    <div class="ov-card" style="padding:0;overflow:hidden">
+      <div class="ov-scroll">
+        <table class="ov-t ov-detail-row" id="dtTable">
+          <thead><tr><th>{{ L.scope_short }}</th><th>{{ L.cat }}</th><th>{{ L.unit }}</th>
+                      <th>状态</th><th>日期</th><th>描述</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="ov-empty" id="dtEmpty" style="display:none">没有匹配的记录</div>
+    </div>
+    <div class="ov-hint" id="dtNote"></div>
+  </div>
+
+  <div class="ov-foot">
+    数据来自现有数据库，口径与单船页一致（{{ D.meta.closed_rule }}）<br>
+    {{ D.meta.cat_note }} · {{ D.meta.sixs_note }}
+  </div>
+</div>
+
+<script id="ovData" type="application/json">{{ D|tojson }}</script>
+<script>
+(function () {
+  'use strict';
+  var D = JSON.parse(document.getElementById('ovData').textContent);
+  var L = D.L, BIZ = D.biz;
+  var DETAILS = D.details || [], ROWS = D.rows || [];
+  var stateFilter = '';   // 明细状态筛选（点指标卡 / 透视单元格）
+  var charts = [];
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function jump(id) { var e = document.getElementById(id); if (e) e.scrollIntoView({behavior:'smooth'}); return false; }
+  window.jump = jump;
+
+  /* ---------- 指标卡 ---------- */
+  var kb = document.getElementById('ovKpis');
+  kb.innerHTML = D.kpi.map(function (k) {
+    return '<div class="ov-kpi ' + (k.tone || '') + '" data-k="' + k.key + '">' +
+             '<div class="lb">' + esc(k.label) + '</div>' +
+             '<div class="vl">' + esc(k.value) + '<small>' + esc(k.unit) + '</small></div>' +
+           '</div>';
+  }).join('');
+  kb.addEventListener('click', function (e) {
+    var card = e.target.closest('.ov-kpi'); if (!card) return;
+    var k = card.getAttribute('data-k');
+    if (k === 'open') stateFilter = L.open;
+    else if (k === 'closed') stateFilter = L.done;
+    else stateFilter = '';
+    renderChips(); applyDetail(); jump('ovDetail');
+  });
+
+  /* ---------- 汇总表 ---------- */
+  var sumBody = document.querySelector('#ovSummary tbody');
+  var html = ROWS.map(function (r) {
+    var rate = r.rate + '%';
+    var tds = '<td><a href="' + L.detail_prefix + r.id + '">' + esc(r.name) + '</a></td>' +
+              '<td class="ov-num">' + r.total + '</td>' +
+              '<td class="ov-num">' + r.closed + '</td>' +
+              '<td class="ov-num">' + r.open + '</td>' +
+              '<td class="ov-num">' + rate + '</td>';
+    if (BIZ === 'safety') tds += '<td class="ov-num">' + (r.sixs == null ? '—' : r.sixs) + '</td>';
+    tds += '<td><a href="' + L.detail_prefix + r.id + '">查看</a></td>';
+    return '<tr>' + tds + '</tr>';
+  }).join('');
+  var T = ROWS.reduce(function (a, r) {
+    a.total += r.total; a.closed += r.closed; a.open += r.open; return a;
+  }, {total:0, closed:0, open:0});
+  var rate = T.total ? Math.round(T.closed * 1000 / T.total) / 10 : 0;
+  html += '<tr class="sum"><td>合计</td><td>' + T.total + '</td><td>' + T.closed + '</td>' +
+          '<td>' + T.open + '</td><td>' + rate + '%</td>' +
+          (BIZ === 'safety' ? '<td>—</td>' : '') + '<td>—</td></tr>';
+  sumBody.innerHTML = html || '<tr><td colspan="7" class="ov-empty">暂无' + esc(L.scope_short) + '数据</td></tr>';
+
+  /* ---------- 图表（本地 Chart.js，不用 CDN） ---------- */
+  function cssVar(n, fb) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(n);
+    return (v || '').trim() || fb;
+  }
+  var PALETTE = ['#4472C4','#ED7D31','#A5A5A5','#FFC000','#5B9BD5','#70AD47','#264478','#9E480E','#636363','#997300'];
+  function palette(i) { return PALETTE[i % PALETTE.length]; }
+  if (window.Chart) { try { Chart.defaults.font.family = 'inherit'; } catch (e) {} }
+  function setChartTheme() {
+    if (!window.Chart) return;
+    Chart.defaults.color = cssVar('--sy-muted', '#6b7488');
+    Chart.defaults.borderColor = cssVar('--sy-border', 'rgba(0,0,0,.08)');
+    charts.forEach(function (c) { try { c.update('none'); } catch (e) {} });
+  }
+  function mk(id, cfg) {
+    var el = document.getElementById(id);
+    if (!el || !window.Chart) return;
+    try { charts.push(new Chart(el, cfg)); } catch (e) {}
+  }
+  function emptyChart(id, msg) {
+    var el = document.getElementById(id); if (!el) return;
+    el.parentNode.innerHTML = '<div class="ov-empty">' + esc(msg) + '</div>';
+  }
+  var cs = D.charts || {};
+  // 各船对比（横向堆叠条）
+  if ((cs.by_ship || []).length) {
+    mk('cShip', { type: 'bar',
+      data: { labels: cs.by_ship.map(function (x) { return x.name; }),
+        datasets: [
+          { label: L.done, data: cs.by_ship.map(function (x) { return x.closed; }), backgroundColor: cssVar('--sy-success', '#16a34a'), borderRadius: 3 },
+          { label: L.open, data: cs.by_ship.map(function (x) { return x.open; }), backgroundColor: cssVar('--sy-danger', '#dc2626'), borderRadius: 3 }
+        ] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { x: { stacked: true, ticks: { precision: 0 } }, y: { stacked: true } } } });
+  } else emptyChart('cShip', '暂无数据');
+  // 类别分布
+  if ((cs.by_cat || []).length) {
+    mk('cCat', { type: 'doughnut',
+      data: { labels: cs.by_cat.map(function (x) { return x.name; }),
+        datasets: [{ data: cs.by_cat.map(function (x) { return x.count; }),
+                     backgroundColor: cs.by_cat.map(function (_, i) { return palette(i); }), borderWidth: 2,
+                     borderColor: cssVar('--sy-surface', '#fff') }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } } });
+  } else emptyChart('cCat', '暂无数据');
+  // 状态占比
+  if ((cs.by_state || []).length) {
+    mk('cState', { type: 'doughnut',
+      data: { labels: cs.by_state.map(function (x) { return x.name; }),
+        datasets: [{ data: cs.by_state.map(function (x) { return x.count; }),
+                     backgroundColor: cs.by_state.map(function (x) {
+                       return x.name === L.done ? cssVar('--sy-success', '#16a34a') : cssVar('--sy-danger', '#dc2626');
+                     }), borderWidth: 2, borderColor: cssVar('--sy-surface', '#fff') }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '58%',
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } } });
+  } else emptyChart('cState', '暂无数据');
+  // 月度趋势
+  if ((cs.by_month || []).length) {
+    mk('cMonth', { type: 'line',
+      data: { labels: cs.by_month.map(function (x) { return x.name; }),
+        datasets: [{ label: L.item, data: cs.by_month.map(function (x) { return x.count; }),
+                     borderColor: cssVar('--sy-accent', '#1d4ed8'),
+                     backgroundColor: cssVar('--sy-accent-soft', '#eaf0ff'),
+                     fill: true, tension: .25, pointRadius: 3 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { ticks: { precision: 0 } } } } });
+  } else emptyChart('cMonth', '暂无数据');
+  setChartTheme();
+  // 主题切换时刷新图表文字（theme.js 不派事件，监听属性变化）
+  if (window.MutationObserver) {
+    new MutationObserver(setChartTheme).observe(document.documentElement,
+      { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
+  /* ---------- 6S 诚实守信 ---------- */
+  var s6 = D.sixs;
+  if (s6) {
+    var box = document.getElementById('ov6s');
+    var items = [
+      ['参评船数', s6.scored_ships, '艘'], ['平均分', s6.avg_score, '分'],
+      ['最低分', s6.min_score, '分'], ['扣分条目', s6.deduct_items, '条']
+    ];
+    var h = items.map(function (x) {
+      return '<div class="ov-kpi"><div class="lb">' + x[0] + '</div>' +
+             '<div class="vl">' + x[1] + '<small>' + x[2] + '</small></div></div>';
+    }).join('');
+    var top = (s6.top_items || []).length
+      ? '<ol>' + s6.top_items.map(function (t) {
+          return '<li><code>' + esc(t.code) + '</code> ' + esc(t.text) + ' <b>×' + t.count + '</b></li>';
+        }).join('') + '</ol>'
+      : '<div class="ov-empty" style="padding:10px">暂无扣分记录</div>';
+    h += '<div class="ov-card wide"><h3>高频扣分项 Top 5</h3>' + top + '</div>';
+    box.innerHTML = h;
+  }
+
+  /* ---------- 筛选下拉初始化 ---------- */
+  function uniq(key) {
+    var o = [], seen = {};
+    DETAILS.forEach(function (d) { var v = d[key]; if (v && !seen[v]) { seen[v] = 1; o.push(v); } });
+    return o.sort();
+  }
+  function fill(sel, arr, labelFn) {
+    var e = document.getElementById(sel); if (!e) return;
+    arr.forEach(function (v) {
+      var op = document.createElement('option'); op.value = v; op.textContent = labelFn ? labelFn(v) : v;
+      e.appendChild(op);
+    });
+  }
+  var shipNames = ROWS.map(function (r) { return r.name; });
+  fill('fShip', shipNames);
+  fill('fCat', uniq('cat'));
+  fill('pvState', [L.done, L.open]);
+
+  /* ---------- 透视表（前端交叉统计，单一数据源 = details） ---------- */
+  function renderPivot() {
+    var dim = document.getElementById('pvDim').value;
+    var stOnly = document.getElementById('pvState').value;
+    var recs = DETAILS.filter(function (d) { return !stOnly || d.state === stOnly; });
+    var dimLabel = (D.dims.filter(function (x) { return x.key === dim; })[0] || {}).label || '';
+    var cols = {}, ships = {}, recsUsed = 0;
+    recs.forEach(function (d) {
+      var c = d[dim] || '未指定', s = d.ship || '—';
+      cols[c] = 1; ships[s] = 1; recsUsed++;
+    });
+    var colNames = Object.keys(cols).sort(function (a, b) {
+      // 按合计降序，让重点维度靠前
+      var ca = recs.filter(function (d) { return (d[dim] || '未指定') === a; }).length;
+      var cb = recs.filter(function (d) { return (d[dim] || '未指定') === b; }).length;
+      return cb - ca;
+    }).slice(0, 10);   // 手机端最多 10 列，避免横向滚到天荒地老
+    var shipNames = Object.keys(ships);
+    var grid = {}, colTotal = {}, rowTotal = {}, grand = 0;
+    recs.forEach(function (d) {
+      var c = d[dim] || '未指定', s = d.ship || '—';
+      if (colNames.indexOf(c) < 0) return;
+      var k = s + '\u0001' + c;
+      grid[k] = (grid[k] || 0) + 1;
+      colTotal[c] = (colTotal[c] || 0) + 1;
+      rowTotal[s] = (rowTotal[s] || 0) + 1;
+      grand++;
+    });
+    var t = document.getElementById('pvTable');
+    if (!grand) {
+      t.innerHTML = '<tr><td class="ov-empty">没有可统计的记录</td></tr>';
+      document.getElementById('pvHint').textContent = '';
+      return;
+    }
+    var head = '<thead><tr><th>' + esc(L.scope_short) + '</th>';
+    colNames.forEach(function (c) { head += '<th>' + esc(c.length > 8 ? c.slice(0, 8) + '…' : c) + '</th>'; });
+    head += '<th>合计</th></tr></thead>';
+    var body = '<tbody>';
+    shipNames.forEach(function (s) {
+      body += '<tr><td>' + esc(s.length > 10 ? s.slice(0, 10) + '…' : s) + '</td>';
+      colNames.forEach(function (c) {
+        var n = grid[s + '\u0001' + c] || 0;
+        body += '<td class="ov-num">' + (n ? '<a href="#" data-ship="' + esc(s) + '" data-dim="' + esc(dim) +
+                '" data-val="' + esc(c) + '">' + n + '</a>' : '·') + '</td>';
+      });
+      body += '<td class="ov-num"><b>' + (rowTotal[s] || 0) + '</b></td></tr>';
+    });
+    body += '<tr class="sum"><td>合计</td>';
+    colNames.forEach(function (c) { body += '<td>' + (colTotal[c] || 0) + '</td>'; });
+    body += '<td>' + grand + '</td></tr></tbody>';
+    t.innerHTML = head + body;
+    document.getElementById('pvHint').textContent =
+      '行 = ' + esc(L.scope_short) + '，列 = ' + esc(dimLabel) + '；共 ' + grand + ' 条，' +
+      (colNames.length < Object.keys(cols).length ? '仅显示数量最多的 10 列。' : '');
+  }
+  document.getElementById('pvDim').addEventListener('change', renderPivot);
+  document.getElementById('pvState').addEventListener('change', renderPivot);
+  document.getElementById('pvTable').addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-dim]'); if (!a) return;
+    e.preventDefault();
+    pivotFilter = { dim: a.getAttribute('data-dim'), val: a.getAttribute('data-val'), ship: a.getAttribute('data-ship') };
+    stateFilter = '';
+    renderChips(); applyDetail(); jump('ovDetail');
+  });
+  var pivotFilter = null;
+  renderPivot();
+
+  /* ---------- 明细：chips + 搜索共用一个 apply() ---------- */
+  function renderChips() {
+    var box = document.getElementById('dtChips');
+    var arr = [['', '全部'], [L.open, L.open], [L.done, L.done]];
+    var h = arr.map(function (x) {
+      var on = (stateFilter === x[0] && !pivotFilter) ? ' on' : '';
+      return '<span class="ov-chip' + on + '" data-s="' + esc(x[0]) + '">' + esc(x[1]) + '</span>';
+    }).join('');
+    if (pivotFilter) {
+      h += '<span class="ov-chip on" data-clear="1">透视：' + esc(pivotFilter.ship) + ' / ' +
+           esc(pivotFilter.val) + ' ×</span>';
+    }
+    box.innerHTML = h;
+  }
+  document.getElementById('dtChips').addEventListener('click', function (e) {
+    var c = e.target.closest('.ov-chip'); if (!c) return;
+    if (c.getAttribute('data-clear')) { pivotFilter = null; }
+    else { pivotFilter = null; stateFilter = c.getAttribute('data-s') || ''; }
+    renderChips(); applyDetail();
+  });
+  function applyDetail() {
+    var ship = document.getElementById('fShip').value;
+    var cat = document.getElementById('fCat').value;
+    var kw = (document.getElementById('fKw').value || '').trim().toLowerCase();
+    var rows = DETAILS.filter(function (d) {
+      if (stateFilter && d.state !== stateFilter) return false;
+      if (pivotFilter) {
+        if (d.ship !== pivotFilter.ship) return false;
+        if ((d[pivotFilter.dim] || '未指定') !== pivotFilter.val) return false;
+      }
+      if (ship && d.ship !== ship) return false;
+      if (cat && d.cat !== cat) return false;
+      if (kw && ((d.desc || '') + ' ' + (d.no || '') + ' ' + (d.cat || '')).toLowerCase().indexOf(kw) < 0) return false;
+      return true;
+    });
+    var body = document.querySelector('#dtTable tbody');
+    body.innerHTML = rows.slice(0, 200).map(function (d) {
+      return '<tr><td title="' + esc(d.ship) + '">' + esc(d.ship) + '</td>' +
+             '<td>' + esc(d.cat) + '</td><td>' + esc(d.unit) + '</td>' +
+             '<td><span class="ov-tag ' + (d.closed ? 'ok' : 'bad') + '">' + esc(d.state) + '</span></td>' +
+             '<td>' + esc(d.date) + '</td><td title="' + esc(d.desc) + '">' + esc(d.desc || '—') + '</td></tr>';
+    }).join('');
+    document.getElementById('dtEmpty').style.display = rows.length ? 'none' : '';
+    document.getElementById('dtCount').textContent = rows.length === DETAILS.length
+      ? '' : '匹配 ' + rows.length + ' / ' + DETAILS.length + ' 条';
+    var note = D.meta.details_capped
+      ? '明细仅加载前 ' + D.meta.details_shown + ' 条（共 ' + D.meta.details_total + ' 条），导出 Excel 为全量。'
+      : '共 ' + DETAILS.length + ' 条，最多显示 200 条。';
+    document.getElementById('dtNote').textContent = note;
+    refreshLink();
+  }
+  ['fShip', 'fCat'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', applyDetail);
+  });
+  document.getElementById('fKw').addEventListener('input', applyDetail);
+  renderChips(); applyDetail();
+
+  /* ---------- V1.48-s3：先生成网址、再点网址导出 ----------
+     网址仍指向 /overview/export.xlsx（受全局 SSO 门禁保护，绝不放静态目录）；
+     用 location.origin 动态拼 —— 本机局域网 IP / 线上公网地址自动适配，不写死。
+     每次点开都是实时生成的最新数据，网址可复制、可转发、可重复用。 */
+  function buildExportUrl() {
+    var p = {
+      biz: BIZ,
+      ship: (document.getElementById('fShip') || {}).value || '',
+      cat: (document.getElementById('fCat') || {}).value || '',
+      state: stateFilter || '',
+      kw: (document.getElementById('fKw') || {}).value || ''
+    };
+    if (pivotFilter) {
+      p.ship = pivotFilter.ship;
+      p.pivot_dim = pivotFilter.dim;
+      p.pivot_val = pivotFilter.val;
+    }
+    var q = Object.keys(p).map(function (k) {
+      return k + '=' + encodeURIComponent(p[k] == null ? '' : p[k]);
+    });
+    return location.origin + '/overview/export.xlsx?' + q.join('&');
+  }
+  function refreshLink() {
+    var bar = document.getElementById('ovLinkBar');
+    if (bar && bar.classList.contains('on')) {
+      document.getElementById('ovLinkUrl').textContent = buildExportUrl();
+    }
+  }
+  window.exportExcel = function () {
+    document.getElementById('ovLinkUrl').textContent = buildExportUrl();
+    document.getElementById('ovLinkBar').classList.add('on');
+    if (window.showToast) window.showToast('导出网址已生成', 'ok');
+  };
+  window.closeExportLink = function () {
+    document.getElementById('ovLinkBar').classList.remove('on');
+  };
+  window.doDownload = function () {
+    window.location.href = buildExportUrl();
+    if (window.showToast) window.showToast('正在生成 Excel…', 'ok');
+  };
+  window.copyExportLink = function () {
+    var u = buildExportUrl();
+    function done() { if (window.showToast) window.showToast('网址已复制', 'ok'); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = u; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); }
+      catch (e) { if (window.showToast) window.showToast('请长按上方网址复制', 'warn'); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(u).then(done, fallback);
+    } else { fallback(); }
+  };
+})();
+</script>
+</body>
+</html>

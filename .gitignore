@@ -1,0 +1,101 @@
+# ========== 密钥 / 现场配置（禁止外发）==========
+config.json
+config.json.*
+admin_grant_config.json
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.jsonl
+*.log
+logs/
+app.log
+
+# ========== 企业人员 / 组织通讯录（含手机号，禁止外发）==========
+chz_users.json
+chz_org.json
+*_users.json
+*_org.json
+
+# ========== 现场照片 / 上传附件 ==========
+uploads/
+_manual_imgs/
+_preview/
+
+# ========== 编译 / 打包产物 ==========
+*.so
+*.pyd
+*.c
+*.obj
+*.o
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+build/
+dist/
+build_cython/
+build_enc/
+build_test/
+build_exe_demo/
+build_v116.b64
+*.exe
+*.pkg
+*.pyz
+*.spec
+.pack-venv/
+打包发布/
+
+# ========== 备份 / 归档 / 历史补丁包 ==========
+*.bak*
+*.broken*
+*.orig
+*.rej
+archive/
+templates.bak*/
+upgrade_v116*/
+upgrade_v116_chunks/
+去注释源码/
+*.zip
+*.7z
+*.rar
+
+# ========== 含内部信息的资料（按需手工加回）==========
+软件著作权申请资料/
+用户手册/
+申请表信息.txt
+templates/index.txt
+
+# ========== 含真实人员手机号的名单 / 授权配置（禁止外发）==========
+safety_reviewers.json
+debug_sup_config.json
+debug_admin_grant_config.json
+debug_user_grant_config.json
+safety_review_config.json
+
+# ========== 内部部署文档 / 版本过程文档 / 预览稿（含 IP、姓名、手机号或过程口径）==========
+/*.html
+/*.txt
+!requirements.txt
+部署包_内网Linux/
+部署步骤_*.txt
+变更说明_*.txt
+UI设计规范_*.txt
+
+# ========== 开发调试 / 设计稿预览页（非线上页面，仅本机截图用）==========
+static/_shell.html
+static/ui_light_preview.html
+static/_v*.html
+static/_preview/
+
+# ========== 开发过程临时脚本 ==========
+_patch_*.py
+_shot_*.py
+make_demo_data.py
+
+# ========== 编辑器 / 系统临时文件 ==========
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

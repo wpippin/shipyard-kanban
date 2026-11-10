@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录日志 - 船舶完整性管理看板</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* 局部兜底（避免无主题或 Bootstrap 变量异常） */
+        :root { --navy: #14406b; --blue: #2f6fae; }
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+
+        /* ===== V1.5.2 Excel 式登录日志 ===== */
+        .log-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .log-count { font-size: 12px; color: var(--sy-muted, #64748b); }
+        .log-table-wrap {
+            border: 1px solid var(--sy-border, #e2e8f0);
+            border-radius: var(--sy-radius, 12px);
+            overflow: hidden;
+            background: var(--sy-surface, #fff);
+        }
+        .log-table {
+            width: 100%;
+            min-width: 780px;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+        .log-table thead tr:first-child th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--sy-surface-2, #f1f5f9);
+            color: var(--sy-text, #0f172a);
+            font-weight: 700;
+            padding: 10px 8px;
+            border-bottom: 2px solid var(--sy-border, #e2e8f0);
+            white-space: nowrap;
+            text-align: center;
+        }
+        .log-table thead tr.filter-row th {
+            position: sticky;
+            top: 38px;
+            z-index: 9;
+            background: var(--sy-surface, #fff);
+            padding: 6px 4px;
+            border-bottom: 1px solid var(--sy-border, #e2e8f0);
+        }
+        .log-table thead tr.filter-row th input {
+            width: 100%;
+            font-size: 12px;
+            padding: 4px 6px;
+            background: var(--sy-surface-2, #f8fafc);
+            border: 1px solid var(--sy-border, #e2e8f0);
+            border-radius: 6px;
+            color: var(--sy-text, #0f172a);
+        }
+        .log-table thead tr.filter-row th input::placeholder { color: var(--sy-muted, #94a3b8); }
+        .log-table tbody td {
+            padding: 8px 6px;
+            border-bottom: 1px solid var(--sy-border, #e2e8f0);
+            border-right: 1px solid var(--sy-border, #e2e8f0);
+            vertical-align: middle;
+            color: var(--sy-text, #0f172a);
+        }
+        .log-table tbody td:last-child { border-right: none; }
+        .log-table tbody tr:nth-child(even) td { background: rgba(14,165,233,.03); }
+        .log-table tbody tr:hover td { background: rgba(14,165,233,.08); }
+        .log-table tbody tr.fail td { background: rgba(239,68,68,.04); }
+        .log-table tbody tr.fail:hover td { background: rgba(239,68,68,.1); }
+        .log-table .col-time { width: 150px; text-align: center; }
+        .log-table .col-phone { width: 130px; text-align: center; }
+        .log-table .col-name { width: 100px; text-align: center; }
+        .log-table .col-ip { width: 120px; text-align: center; }
+        .log-table .col-result { width: 80px; text-align: center; }
+        .log-table .col-detail { min-width: 220px; text-align: left; }
+        @media (max-width: 767.98px) {
+            .container-fluid { padding: 12px; }
+            .log-table { font-size: 12px; }
+            .log-table thead tr:first-child th { padding: 8px 5px; }
+            .log-table tbody td { padding: 6px 5px; }
+        }
+    </style>
+    <style>
+        /* V1.59c：手机端标题居中一行，操作按钮第二行右对齐 */
+        @media (max-width: 575.98px){
+            .pg-top { display: block !important; }
+            .pg-top .pg-title { text-align: center; margin-bottom: 8px !important; }
+            .pg-top .pg-title.d-flex, .pg-top .pg-title.d-inline-flex { justify-content: center; }
+            .pg-top .pg-ctrl { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
+        }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="bg-light">
+<div class="container-fluid py-3 px-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 pg-top">
+        <h4 class="mb-0 d-flex align-items-center gap-2 pg-title">
+            <svg class="ic-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            登录日志
+            <span class="badge-soft"><span class="dot"></span>{{ '安全业务' if biz == 'safety' else '调试业务' }}</span>
+        </h4>
+        <div class="d-flex align-items-center gap-2 pg-ctrl">
+            <span class="text-muted small">{{ user_name }}</span>
+            <a href="/admin/users" class="btn btn-outline-secondary btn-sm">用户管理</a>
+            <a href="{% if biz == 'safety' %}/safety{% else %}/{% endif %}" class="btn btn-outline-secondary btn-sm">返回看板</a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2 px-3 small text-muted">
+            系统只保留<strong>最近 300 条</strong>登录记录（每条含真实姓名、来源 IP 与成败原因）。连续失败 5 次将临时锁定 15 分钟。
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2 px-3">
+            <form class="row g-2 align-items-center" method="get" action="/admin/login_logs" id="qForm">
+                <input type="hidden" name="biz" value="{{ biz or 'debug' }}">
+                <div class="col-md-4 col-sm-8">
+                    <input type="search" name="q" id="qInput" value="{{ kw or '' }}" class="form-control form-control-sm"
+                           placeholder="按 手机号 / 姓名 快速筛选，如：138xxxx 或 张三">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm px-3">服务端筛选</button>
+                </div>
+                {% if kw %}
+                <div class="col-auto">
+                    <a href="/admin/login_logs{{ qs or '' }}" class="btn btn-outline-secondary btn-sm">清除</a>
+                </div>
+                {% endif %}
+                <div class="col-auto log-count" id="logCount">
+                    {% if kw %}匹配 {{ logs|length }} 条{% else %}共 {{ logs|length }} 条{% endif %}
+                </div>
+                <div class="col-auto ms-md-auto">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearColumnFilters()">清空列筛选</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="log-table-wrap shadow-sm">
+        <div class="table-responsive">
+            <table class="log-table" id="logTable">
+                <thead>
+                    <tr>
+                        <th class="col-time">时间</th>
+                        <th class="col-phone">账号(手机号)</th>
+                        <th class="col-name">姓名</th>
+                        <th class="col-ip">来源 IP</th>
+                        <th class="col-result">结果</th>
+                        <th class="col-detail">说明（失败原因）</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" data-col="0" placeholder="筛选时间..." oninput="filterTable()"></th>
+                        <th><input type="text" data-col="1" placeholder="筛选手机号..." oninput="filterTable()"></th>
+                        <th><input type="text" data-col="2" placeholder="筛选姓名..." oninput="filterTable()"></th>
+                        <th><input type="text" data-col="3" placeholder="筛选IP..." oninput="filterTable()"></th>
+                        <th>
+                            <select class="form-select form-select-sm" data-col="4" onchange="filterTable()" style="font-size:12px;padding:4px 6px;">
+                                <option value="">全部</option>
+                                <option value="成功">成功</option>
+                                <option value="失败">失败</option>
+                            </select>
+                        </th>
+                        <th><input type="text" data-col="5" placeholder="筛选说明..." oninput="filterTable()"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in logs %}
+                    <tr class="text-center {% if not l.success %}fail{% endif %}">
+                        <td class="col-time"><small>{{ l.created_at or '—' }}</small></td>
+                        <td class="col-phone fw-bold">{{ l.username or '—' }}</td>
+                        <td class="col-name">{{ l.name or '—' }}</td>
+                        <td class="col-ip"><small>{{ l.ip or '—' }}</small></td>
+                        <td class="col-result">
+                            {% if l.success %}
+                                <span class="badge bg-success">成功</span>
+                            {% else %}
+                                <span class="badge bg-danger">失败</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-detail"><small>{{ l.detail or '—' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                    {% if not logs %}
+                    <tr id="emptyRow"><td colspan="6" class="text-center text-muted py-5">暂无匹配的登录记录</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+    function filterTable() {
+        const table = document.getElementById('logTable');
+        const inputs = Array.from(table.querySelectorAll('.filter-row th [data-col]'));
+        const filters = inputs.map(function (el) {
+            return { col: parseInt(el.getAttribute('data-col')), val: el.value.trim().toLowerCase() };
+        });
+        let visible = 0;
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(function (row) {
+            if (row.id === 'emptyRow') return;
+            let show = true;
+            for (let i = 0; i < filters.length; i++) {
+                const f = filters[i];
+                if (!f.val) continue;
+                const cell = row.cells[f.col];
+                if (!cell) continue;
+                const text = cell.textContent.toLowerCase();
+                if (!text.includes(f.val)) { show = false; break; }
+            }
+            row.style.display = show ? '' : 'none';
+            if (show) visible++;
+        });
+        const empty = document.getElementById('emptyRow');
+        if (empty) empty.style.display = visible ? 'none' : '';
+        const countEl = document.getElementById('logCount');
+        if (countEl) countEl.textContent = '当前显示 ' + visible + ' 条';
+    }
+    function clearColumnFilters() {
+        document.querySelectorAll('.filter-row th [data-col]').forEach(function (el) { el.value = ''; });
+        filterTable();
+    }
+</script>
+</body>
+</html>

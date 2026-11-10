@@ -1,0 +1,576 @@
+/* ==========================================================================
+   V1.6 界面样式（对齐《船舶看板V1.6界面Demo.html》的设计语言）
+   使用方式：需要整套皮肤时给 <body> 加 class="v16"；
+             只需要入口宫格/列表条目等组件时，直接页面引入本文件即可。
+   设计令牌（取自 demo）：
+     主色 #1d4ed8 · 主色浅底 #eaf0ff · 页面底 #eef1f6 · 卡片 #fff
+     描边 #e3e7ee · 正文 #1c2331 · 次要文字 #6b7488
+     成功 #16a34a/#e8f7ee · 警告 #f59e0b/#fff5e6 · 危险 #dc2626/#fdecec · 灰 #94a3b8
+   ⚠️ 变量一律加 v16- 前缀，避免和项目既有的 --line / --bg / --navy 等撞名。
+   V1.49：新增 --v16-accent 低饱和主操作色；几何形态令牌统一见 tokens.css。
+   ========================================================================== */
+
+:root {
+    --v16-pri: #1d4ed8; --v16-pri-d: #1740b0; --v16-pri-l: #eaf0ff;
+    --v16-bg: #eef1f6; --v16-card: #fff; --v16-line: #e3e7ee;
+    --v16-txt: #1c2331; --v16-sub: #6b7488;
+    --v16-ok: #16a34a; --v16-okbg: #e8f7ee;
+    --v16-warn: #f59e0b; --v16-warnbg: #fff5e6;
+    --v16-bad: #dc2626; --v16-badbg: #fdecec;
+    --v16-gray: #94a3b8; --v16-graybg: #eef1f6;
+    --v16-input: #d7dde7;
+    --v16-accent: #33455f; --v16-accent-ink: #ffffff;
+    /* V1.50 中性底/卡片/描边：样板页先用；C 阶段全站推广时再把 --v16-bg 指向它 */
+    --v16-bg-neutral: #f6f7f9; --v16-card-neutral: #ffffff;
+    --v16-line-neutral: #e5e7eb; --v16-subtle-neutral: #f1f3f5;
+    --v16-focus-ring: rgba(51, 69, 95, .12);
+    /* V1.52 6S 打分页：得分头卡渐变 / 已扣行底色（亮暗各一套，模板只用 var()） */
+    --v16-hero-a: #22344f; --v16-hero-b: #5a3a78;
+    --v16-hero-fg: #ffffff; --v16-hero-sub: rgba(255, 255, 255, .78);
+    --v16-hero-shadow: rgba(34, 52, 79, .18);
+    --v16-hit-row: rgba(220, 38, 38, .045);
+    --v16-bad-ink: #ffffff;
+}
+html[data-theme="dark"] {
+    --v16-pri: #5b8cf7; --v16-pri-d: #4a7ae0; --v16-pri-l: rgba(91, 140, 247, .16);
+    --v16-bg: #12161c; --v16-card: #1b212b; --v16-line: #2c3543;
+    --v16-txt: #e6ebf2; --v16-sub: #9aa6b8;
+    --v16-ok: #4ade80; --v16-okbg: rgba(74, 222, 128, .14);
+    --v16-warn: #fbbf24; --v16-warnbg: rgba(251, 191, 36, .14);
+    --v16-bad: #f87171; --v16-badbg: rgba(248, 113, 113, .14);
+    --v16-gray: #8b96a8; --v16-graybg: rgba(255, 255, 255, .06);
+    --v16-input: #2c3543;
+    --v16-accent: #7d97bb; --v16-accent-ink: #12161c;
+    --v16-bg-neutral: #0f1319; --v16-card-neutral: #181e27;
+    --v16-line-neutral: #262e3a; --v16-subtle-neutral: rgba(255, 255, 255, .04);
+    --v16-focus-ring: rgba(125, 151, 187, .22);
+    --v16-hero-a: #1c2b45; --v16-hero-b: #4b2f68;
+    --v16-hero-fg: #f2f5fa; --v16-hero-sub: rgba(230, 235, 242, .72);
+    --v16-hero-shadow: rgba(0, 0, 0, .35);
+    --v16-hit-row: rgba(248, 113, 113, .08);
+    --v16-bad-ink: #ffffff;
+}
+
+body.v16 {
+    margin: 0;
+    background: var(--v16-bg);
+    color: var(--v16-txt);
+    font-family: "Microsoft YaHei", "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    -webkit-tap-highlight-color: transparent;
+}
+body.v16.pb { padding-bottom: 84px; }
+
+/* ---------- 顶部标题条 ---------- */
+.v16-top {
+    background: var(--v16-card);
+    border-bottom: 1px solid var(--v16-line);
+    padding: 11px 14px;
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 20;
+}
+.v16-top .bk { display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px 5px 8px;
+    border: 1px solid var(--v16-line); border-radius: 999px; background: var(--v16-card);
+    color: var(--v16-pri); text-decoration: none; font-size: 13px; font-weight: 600; flex: 0 0 auto; }
+.v16-top .ttl { font-size: 15.5px; font-weight: 700; margin: 0; flex: 1; text-align: center; color: var(--v16-txt); }
+.v16-top .rt { flex: 0 0 auto; min-width: 42px; text-align: right; font-size: 12px; color: var(--v16-sub); }
+
+/* ===== V1.16.7：顶栏标题「真正居中」+ 业务小字在标题正下方 =====
+   原来标题靠 flex:1 + text-align:center 伪居中，左右两侧宽度不等（右边「我的」胶囊比左边返回键宽）
+   就一定偏。改成绝对定位居中：.v16-top 本来就是 sticky（定位元素），天然是包含块。
+   用了 .v16-mid 之后标题脱离文档流，所以要靠 .rt { margin-left:auto } 把右侧元素顶到最右。 */
+.v16-top.top-mid .rt { margin-left: auto; }
+.v16-mid {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    max-width: calc(100% - 160px);
+    pointer-events: none;      /* 纯文字，别挡住底下的按钮 */
+    text-align: center;
+}
+.v16-mid .ttl { font-size: 15.5px; line-height: 1.2; flex: 0 0 auto; margin: 0; }
+
+/* ===== V1.59f：其余顶栏（未挂 top-mid 的页面）标题同样绝对定位居中 =====
+   sixs/sixs_new/sixs_view/hl/my/sys_lists 六页原来走 flex:1 + text-align:center 伪居中，
+   左侧返回键窄、右侧 rt 宽度不定，标题必偏。统一改成绝对定位真居中：
+   .v16-top 是 sticky（定位元素）天然作包含块；rt 靠 margin-left:auto 顶到最右。 */
+.v16-top:not(.top-mid) .ttl {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: calc(100% - 140px);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
+}
+.v16-top:not(.top-mid) .rt { margin-left: auto; }
+.v16-mid .biztag { font-size: 11px; line-height: 1.25; color: var(--v16-sub); opacity: .85; }
+.v16-h1 { font-size: 19px; font-weight: 700; margin: 0; }
+.v16-sub { font-size: 12.5px; color: var(--v16-sub); }
+
+/* ---------- 卡片 ---------- */
+.v16-card {
+    background: var(--v16-card); border: 1px solid var(--v16-line);
+    border-radius: 10px; padding: 11px 12px; margin-bottom: 9px;
+}
+.v16-card.p0 { padding: 0; overflow: hidden; }
+.v16-card.tap { cursor: pointer; }
+.v16-card.tap:active { background: var(--v16-pri-l); }
+.v16-spread { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.v16-row { display: flex; align-items: center; gap: 8px; }
+.v16-muted { color: var(--v16-sub); }
+.v16-sm { font-size: 12px; }
+.v16-xs { font-size: 11.5px; }
+.v16-tit { font-weight: 700; font-size: 14.5px; }
+.v16-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 按钮 ---------- */
+.v16-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    border: 0; border-radius: 8px; background: var(--v16-pri); color: #fff;
+    padding: 9px 12px; font-size: 14px; font-weight: 700; cursor: pointer;
+    text-decoration: none; width: 100%; line-height: 1.35;
+}
+.v16-btn:hover { background: var(--v16-pri-d); color: #fff; }
+.v16-btn.sec { background: var(--v16-card); color: var(--v16-pri); border: 1px solid #c9d8ff; }
+.v16-btn.sec:hover { background: var(--v16-pri-l); color: var(--v16-pri); }
+.v16-btn.gray { background: var(--v16-graybg); color: var(--v16-txt); border: 1px solid var(--v16-line); font-weight: 400; }
+.v16-btn.gray:hover { background: var(--v16-line); color: var(--v16-txt); }
+.v16-btn.danger { background: var(--v16-card); color: var(--v16-bad); border: 1px solid var(--v16-bad); font-weight: 400; }
+.v16-btn.danger:hover { background: var(--v16-badbg); color: var(--v16-bad); }
+.v16-btn.auto { width: auto; }
+.v16-btn.sm { padding: 6px 10px; font-size: 12.5px; }
+.v16-btnrow { display: flex; gap: 8px; }
+.v16-btnrow .v16-btn { flex: 1; }
+
+/* ---------- 标签 ---------- */
+.v16-tag {
+    display: inline-block; border-radius: var(--rd-sm); padding: 1px 7px;
+    font-size: 11.5px; font-weight: 700; white-space: nowrap;
+}
+.v16-tag.t-ok { background: var(--v16-okbg); color: var(--v16-ok); }
+.v16-tag.t-warn { background: var(--v16-warnbg); color: #b45309; }
+.v16-tag.t-bad { background: var(--v16-badbg); color: var(--v16-bad); }
+.v16-tag.t-info { background: var(--v16-pri-l); color: var(--v16-pri); }
+.v16-tag.t-gray { background: var(--v16-graybg); color: var(--v16-sub); }
+html[data-theme="dark"] .v16-tag.t-warn { color: var(--v16-warn); }
+
+/* ---------- chips ---------- */
+.v16-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.v16-chip {
+    display: inline-block; border: 1px solid var(--v16-input); background: var(--v16-card);
+    border-radius: var(--rd); padding: 5px 11px; font-size: 12.5px;
+    color: var(--v16-sub); cursor: pointer; text-decoration: none;
+}
+.v16-chip.on { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; font-weight: 700; }
+.v16-chip.mut.on { background: var(--v16-sub); border-color: var(--v16-sub); }
+
+/* ---------- 表单 ---------- */
+body.v16 label.lb, body.v16 .lb {
+    display: block; font-size: 12.5px; color: var(--v16-sub); margin: 10px 0 4px;
+}
+body.v16 input[type=text], body.v16 input[type=tel], body.v16 input[type=password],
+body.v16 input[type=file], body.v16 select, body.v16 textarea {
+    width: 100%; border: 1px solid var(--v16-input); border-radius: 8px; padding: 8px 10px;
+    font-size: 14px; font-family: inherit; background: var(--v16-card); color: var(--v16-txt); outline: none;
+}
+body.v16 input:focus, body.v16 select:focus, body.v16 textarea:focus { border-color: var(--v16-pri); }
+body.v16 input:disabled { background: var(--v16-graybg); color: var(--v16-sub); }
+body.v16 textarea { resize: none; line-height: 1.5; }
+
+/* ---------- 分组列表条目（6S 评分等） ---------- */
+.v16-grp { background: var(--v16-card); border: 1px solid var(--v16-line); border-radius: 10px; margin-bottom: 9px; overflow: hidden; }
+.v16-grp-t { font-size: 12.5px; font-weight: 700; color: var(--v16-pri); background: var(--v16-pri-l); padding: 7px 12px; }
+.v16-it { border-top: 1px solid var(--v16-line); cursor: pointer; }
+.v16-it:first-of-type { border-top: 0; }
+.v16-it-in { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; }
+.v16-it .code { flex: 0 0 44px; font-size: 11.5px; color: var(--v16-sub); font-family: Consolas, monospace; padding-top: 2px; }
+.v16-it .txt { flex: 1; font-size: 13px; line-height: 1.45; }
+.v16-it .mark {
+    flex: 0 0 30px; text-align: center; font-size: 11px; color: var(--v16-sub);
+    border: 1px solid var(--v16-line); border-radius: 6px; padding: 3px 0; user-select: none;
+}
+.v16-it.on { background: var(--v16-badbg); }
+.v16-it.on .mark { background: var(--v16-bad); border-color: var(--v16-bad); color: #fff; font-weight: 700; }
+.v16-it.on .txt { color: var(--v16-bad); }
+.v16-notebox { display: none; padding: 0 12px 9px 64px; }
+.v16-notebox input { font-size: 12px; padding: 6px 8px; }
+
+/* ---------- 入口宫格（6S 评分 / 亮点展示） ---------- */
+.v16-entries { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0 0 12px; }
+.v16-entry {
+    display: flex; align-items: center; gap: 9px; text-decoration: none;
+    background: var(--v16-card); border: 1px solid var(--v16-line); border-radius: 10px;
+    padding: 11px 12px; color: var(--v16-txt);
+}
+.v16-entry:hover { border-color: var(--v16-pri); color: var(--v16-txt); }
+.v16-entry:active { background: var(--v16-pri-l); }
+.v16-entry .ico {
+    width: 34px; height: 34px; flex: 0 0 34px; border-radius: var(--rd-sm);
+    background: var(--v16-pri-l); color: var(--v16-pri);
+    display: flex; align-items: center; justify-content: center;
+}
+.v16-entry .ico svg { width: 19px; height: 19px; }
+.v16-entry .nm { display: block; font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+.v16-entry .ds { display: block; font-size: 11.5px; color: var(--v16-sub); margin-top: 2px; }
+@media (max-width: 420px) { .v16-entries { grid-template-columns: 1fr; } }
+
+/* ---------- 底部固定条 ---------- */
+.v16-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: var(--v16-card); border-top: 1px solid var(--v16-line);
+    padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.v16-bar .v16-btn { width: auto; }
+
+/* ---------- 提示 ---------- */
+.v16-tip { background: var(--v16-warnbg); border-left: 4px solid var(--v16-warn); padding: 8px 10px;
+    font-size: 12.5px; margin: 8px 0; border-radius: 0 6px 6px 0; color: #8a5200; }
+.v16-note { background: var(--v16-okbg); border-left: 4px solid var(--v16-ok); padding: 8px 10px;
+    font-size: 12.5px; margin: 8px 0; border-radius: 0 6px 6px 0; color: #0f6b31; }
+html[data-theme="dark"] .v16-tip { color: var(--v16-warn); }
+html[data-theme="dark"] .v16-note { color: var(--v16-ok); }
+.v16-toast {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 92px; z-index: 60;
+    background: rgba(28, 35, 49, .93); color: #fff; padding: 9px 14px; border-radius: 8px;
+    font-size: 12.5px; max-width: 88%; text-align: center;
+    opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.v16-toast.show { opacity: 1; }
+.v16-empty { text-align: center; color: var(--v16-sub); font-size: 13px; padding: 22px 10px; }
+
+/* ---------- 让 Bootstrap 原生控件在 v16 皮肤下也顺眼（不改变布局，只统一观感） ---------- */
+body.v16 .form-control, body.v16 .form-select {
+    border-radius: 8px; border-color: var(--v16-input);
+    background: var(--v16-card); color: var(--v16-txt);
+}
+body.v16 .form-control:focus, body.v16 .form-select:focus {
+    border-color: var(--v16-pri); box-shadow: 0 0 0 3px var(--v16-pri-l);
+}
+body.v16 .form-label { color: var(--v16-txt); font-size: 13px; }
+body.v16 .form-text { font-size: 11.5px; color: var(--v16-sub); }
+body.v16 .alert { border-radius: 10px; border: 0; }
+body.v16 .modal-content { border-radius: var(--rd); background: var(--v16-card); color: var(--v16-txt); }
+body.v16 .dropdown-menu { border-radius: 10px; border-color: var(--v16-line); background: var(--v16-card); }
+body.v16 .dropdown-item { color: var(--v16-txt); }
+body.v16 .dropdown-item:hover { background: var(--v16-pri-l); color: var(--v16-pri); }
+body.v16 .btn-primary { background: var(--v16-pri); border-color: var(--v16-pri); border-radius: 8px; }
+body.v16 .btn-primary:hover { background: var(--v16-pri-d); border-color: var(--v16-pri-d); }
+body.v16 .btn-outline-primary { color: var(--v16-pri); border-color: var(--v16-pri); border-radius: 8px; }
+body.v16 .btn-outline-primary:hover { background: var(--v16-pri); border-color: var(--v16-pri); color: #fff; }
+body.v16 .btn-outline-secondary { border-radius: 8px; }
+body.v16 .btn-brand { background: var(--v16-pri); border: 0; border-radius: 8px; color: #fff; }
+body.v16 .btn-brand:hover { background: var(--v16-pri-d); color: #fff; }
+body.v16 .badge-soft { background: var(--v16-pri-l); color: var(--v16-pri); }
+body.v16 .card { border-color: var(--v16-line); background: var(--v16-card); border-radius: 10px; }
+body.v16 .card-header { background: var(--v16-card); border-color: var(--v16-line); color: var(--v16-txt); }
+body.v16 .text-muted { color: var(--v16-sub) !important; }
+body.v16 .stat-num { font-size: 20px; font-weight: 800; line-height: 1; }
+body.v16 .stat-block { border-left: 1px solid var(--v16-line); }
+body.v16 .stat-label { font-size: 11.5px; color: var(--v16-sub); }
+body.v16 .empty-tip { border-radius: 10px; background: var(--v16-card); border: 1px dashed var(--v16-line); color: var(--v16-sub); }
+
+/* ---------- 发起/批量弹窗（V1.6 界面 Demo s2 / s10）---------- */
+#addModal .modal-body { background: var(--v16-bg); }
+#addModal .modal-content { border-radius: var(--rd); }
+#addModal .card {
+    border: 1px solid var(--v16-line); border-radius: 10px;
+    background: var(--v16-card); margin-bottom: 9px;
+}
+#addModal .card-header {
+    background: var(--v16-pri-l) !important; color: var(--v16-pri) !important;
+    border-bottom: 1px solid var(--v16-line) !important;
+    font-size: 12.5px !important; font-weight: 700;
+}
+#addModal .card-header .text-white,
+#addModal .card-header small { color: var(--v16-sub) !important; }
+#addModal .item-card { padding: 10px !important; }
+#addModal .item-num { color: var(--v16-pri) !important; }
+#addModal .form-label { color: var(--v16-txt); font-size: 12.5px; }
+#addModal .form-text { font-size: 11px; color: var(--v16-sub); }
+.v16-common { background: var(--v16-card); border: 1px solid var(--v16-line); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px; position: sticky; top: 0; z-index: 6; }
+.v16-chip.lv-l1 { background: #2e7d32; border-color: #2e7d32; color: #fff; font-weight: 700; }
+.v16-chip.lv-l2 { background: #1e88e5; border-color: #1e88e5; color: #fff; font-weight: 700; }
+.v16-chip.lv-l3 { background: #d32f2f; border-color: #d32f2f; color: #fff; font-weight: 700; }
+#addModal .lvl-tag { border-radius: 8px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
+#addModal .lvl-tag.l1 { background: #e8f7ee; color: #2e7d32; }
+#addModal .lvl-tag.l2 { background: #e7f1fd; color: #1e88e5; }
+#addModal .lvl-tag.l3 { background: #fdecec; color: #d32f2f; }
+
+/* ---------- Demo s9 看板列表卡片 ---------- */
+.board-link { display: block; text-decoration: none; color: inherit; }
+.board-link:active { opacity: .75; }
+.v16-card-acts { display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+    margin-top: 8px; }
+.v16-card-acts .v16-tag { margin-right: auto; }
+.v16-open { color: var(--v16-bad); font-weight: 700; }
+
+
+/* ---------- Demo s6 亮点展示：左侧色块旗标 ---------- */
+.hl-flag {
+    width: 54px; height: 54px; flex: 0 0 54px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12.5px; font-weight: 700; color: #fff; line-height: 1.15; text-align: center;
+}
+.hl-flag.good { background: linear-gradient(135deg, #34d17a, #16a34a); }
+.hl-flag.bad  { background: linear-gradient(135deg, #f87171, #dc2626); }
+
+/* ---------- Demo s5 行式列表（隐患类别 / 系统清单）---------- */
+body.v16 .sys-table { border-collapse: collapse; background: var(--v16-card); border-radius: 10px; }
+body.v16 .sys-table thead { display: none; }
+body.v16 .sys-table tbody td {
+    padding: 11px 12px; border-bottom: 1px solid var(--v16-line);
+    background: transparent !important;
+}
+body.v16 .sys-table tbody tr:last-child td { border-bottom: 0; }
+body.v16 .sys-row-name { font-weight: 600; font-size: 14px; }
+body.v16 .sys-row-count { text-align: right; color: var(--v16-sub); font-size: 13px; white-space: nowrap; }
+body.v16 .sys-table .btn-outline-danger,
+body.v16 .sys-table .btn-outline-primary {
+    border: 0; background: transparent; padding: 2px 6px; font-size: 13px; font-weight: 600;
+}
+body.v16 .sys-table .btn-outline-danger { color: var(--v16-bad); }
+body.v16 .sys-table .btn-outline-primary { color: var(--v16-pri); }
+body.v16 .manage-panel { border: 1px solid var(--v16-line); border-radius: 10px; background: var(--v16-card); }
+body.v16 .wb-toast { border-radius: 8px; }
+
+/* ==========================================================================
+   V1.6 全站配色统一：把各页原有的「海工墨蓝」整体换成 Demo 蓝 #1d4ed8
+   页面自己的 :root 里写死了 --navy/--navy-deep/--blue，这里统一覆盖（!important 保证胜出）
+   ========================================================================== */
+:root {
+    --navy: var(--v16-pri) !important;
+    --navy-deep: var(--v16-pri-d) !important;
+    --blue: var(--v16-pri) !important;
+    --sy-accent: var(--v16-pri) !important;
+    --sy-accent-2: var(--v16-pri-d) !important;
+    --sy-accent-soft: var(--v16-pri-l) !important;
+}
+.btn-primary { background: var(--v16-pri); border-color: var(--v16-pri); }
+.btn-primary:hover, .btn-primary:focus { background: var(--v16-pri-d); border-color: var(--v16-pri-d); }
+.btn-outline-primary { color: var(--v16-pri); border-color: var(--v16-pri); }
+.btn-outline-primary:hover { background: var(--v16-pri); border-color: var(--v16-pri); }
+.btn-brand { background: var(--v16-pri); color: #fff; border: 0; }
+.btn-brand:hover { background: var(--v16-pri-d); color: #fff; }
+.badge.bg-primary, .bg-primary { background-color: var(--v16-pri) !important; }
+.text-primary { color: var(--v16-pri) !important; }
+.border-primary { border-color: var(--v16-pri) !important; }
+.form-control:focus, .form-select:focus { border-color: var(--v16-pri); box-shadow: 0 0 0 3px var(--v16-pri-l); }
+
+/* ---------- 发起弹窗：调试上级 / 责任单位领导 / 部门长 顶格排成一排 ---------- */
+.v16-persons {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px; margin-bottom: 8px;
+}
+.v16-panel {
+    background: var(--v16-card); border: 1.5px solid var(--v16-line);
+    border-radius: var(--rd-sm); padding: 5px 6px 6px; min-width: 0;
+}
+.v16-panel .pt {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 700; margin-bottom: 4px; line-height: 1.2;
+    /* V1.16.8：整条标题（名称 + 必填 + ＋）强制一行，放不下时名称省略号 */
+    white-space: nowrap; overflow: hidden;
+}
+.v16-panel .pt .ptx { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v16-panel .pt small { flex: 0 0 auto; margin-right: auto; font-weight: 400; color: var(--v16-sub); font-size: 10.5px; margin-left: 0; }
+.v16-panel-add {
+    flex: 0 0 auto; font-size: 11px !important; padding: 0 5px !important;
+    line-height: 1.5 !important; border-radius: 6px !important; margin: 0 !important;
+}
+.v16-panel.lv1 { border-color: #2e7d32; }
+.v16-panel.lv1 .pt { color: #2e7d32; }
+.v16-panel.lv2 { border-color: #1e88e5; }
+.v16-panel.lv2 .pt { color: #1e88e5; }
+.v16-panel.lv3 { border-color: #d32f2f; }
+.v16-panel.lv3 .pt { color: #d32f2f; }
+.v16-panel .row { display: block; margin: 0 !important; }
+.v16-panel [class*="col-md-"] { flex: 0 0 100%; width: 100%; max-width: 100%; padding: 0 !important; }
+.v16-panel .form-control, .v16-panel .form-select { font-size: 12px; padding: 4px 7px; border-radius: var(--rd-xs); }
+.v16-panel .btn { font-size: 11.5px; padding: 3px 8px; border-radius: var(--rd-xs); margin-top: 5px; }
+.v16-panel .btn.w-100 { width: auto !important; }
+.v16-panel .form-text { display: none; }
+@media (max-width: 420px) {
+    .v16-persons { gap: 6px; }
+    .v16-panel { padding: 6px; }
+    .v16-panel .form-control { font-size: 12px; padding: 5px 6px; }
+}
+/* V1.16.8：手机窄屏三栏挤成三坨（标题必被压成两行）⇒ 改成一人一行：
+   「部门长 必填 ＋ | 输入框」横向排，标题天然一行，看着也松快 */
+@media (max-width: 560px) {
+    .v16-persons { grid-template-columns: 1fr; gap: 5px; }
+    .v16-panel { display: flex; align-items: center; gap: 7px; padding: 5px 7px; }
+    .v16-panel > .pt { flex: 0 0 auto; margin: 0; max-width: 46%; min-width: 76px; }
+    .v16-panel > div:last-child { flex: 1 1 auto; min-width: 0; margin: 0; }
+    .v16-panel > div:last-child > .row { margin: 0 !important; }
+}
+
+/* ---------- V1.16.8：发起弹窗 · 安全隐患「整改截止时间」一行 ---------- */
+.v16-dl {
+    background: var(--v16-card); border: 1.5px solid #e0575b;
+    border-radius: 10px; padding: 8px 10px 9px;
+}
+.v16-dl-lb {
+    display: block; font-size: 12.5px; font-weight: 700; color: #d32f2f;
+    margin-bottom: 5px;
+}
+.v16-dl-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.v16-dl-row input[type="datetime-local"] {
+    flex: 1 1 auto; min-width: 0; border-color: #e0575b;
+}
+.v16-dl-row .btn {
+    flex: 0 0 auto; white-space: nowrap; font-size: 11.5px;
+    padding: 3px 8px; border-radius: var(--rd-xs); color: #d32f2f; border-color: #e0575b;
+}
+.v16-dl-row .btn:active { background: #fdecec; }
+.v16-dl-tip { font-size: 11.5px; color: var(--v16-sub); margin-top: 5px; line-height: 1.4; }
+
+/* ---------- 看板列表底部的管理入口 ---------- */
+.v16-admin-links {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: 14px 2px 4px; padding-top: 10px; border-top: 1px solid var(--v16-line);
+}
+.v16-admin-links a { color: var(--v16-pri); text-decoration: none; font-size: 12.5px; }
+.v16-admin-links a:active { opacity: .7; }
+
+/* ---------- V1.7：「我的」——自选身份 ---------- */
+.who-list {
+    max-height: 46vh; overflow: auto; margin-top: 8px;
+    border: 1px solid var(--v16-line); border-radius: 10px; background: var(--v16-card);
+}
+.who-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 12px; border-top: 1px solid var(--v16-line); cursor: pointer;
+}
+.who-row:first-child { border-top: 0; }
+.who-row:hover { background: var(--v16-pri-l); }
+.who-row.on { background: var(--v16-pri-l); box-shadow: inset 3px 0 0 var(--v16-pri); }
+.who-row b { font-size: 13px; font-weight: 700; color: var(--v16-txt); }
+.who-row .ds { font-size: 11.5px; color: var(--v16-sub); text-align: right; }
+
+/* 「我的」入口卡片 */
+.v16-mine .ico { background: var(--v16-pri-l); color: var(--v16-pri); }
+
+/* ---------- V1.10：看板列表顶部的「管理」一行 ---------- */
+.v16-manage {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 9px 12px; margin: 0 0 12px;
+}
+.v16-manage .v16-btn { padding: 6px 12px; font-size: 12.5px; }
+
+/* ===== V1.16.7：管理卡片固定「一行」（调试档 4 个按钮 + 标题）=====
+   原来 flex-wrap:wrap，窄屏（手机）会折成两行。
+   现在改为不折行：放得下就一行排开，真放不下时在卡片内横向滑动，绝不换行。 */
+.v16-manage {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.v16-manage > * { flex: 0 0 auto; white-space: nowrap; }
+.v16-manage::-webkit-scrollbar { height: 4px; }
+.v16-manage::-webkit-scrollbar-thumb { background: #c9d2e0; border-radius: 2px; }
+html[data-theme="dark"] .v16-manage::-webkit-scrollbar-thumb { background: #46506a; }
+
+/* 手机上再收紧一圈，让 4 个按钮能真的一行塞下（不用滑） */
+@media (max-width: 480px) {
+    .v16-manage { padding: 8px 9px; gap: 4px; }
+    .v16-manage .v16-btn {
+        padding: 5px 7px; font-size: 11px; border-radius: var(--rd-xs);
+        letter-spacing: -.2px;
+    }
+}
+/* 极窄屏（320~360px 的老机型）：省掉「管理」标签，保证 4 个按钮仍是一行、不用横滑 */
+@media (max-width: 380px) {
+    .v16-manage { padding: 7px; gap: 3px; }
+    .v16-manage .v16-xs { display: none; }
+}
+
+
+/* ===== V1.16.2：右上角「我的」按钮（胶囊 + 人形图标，浅/暗色都清晰） ===== */
+.v16-top .rt { display: flex; align-items: center; gap: 8px; }
+.v16-me {
+    display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+    background: linear-gradient(135deg, var(--v16-pri) 0%, #4b7bf5 100%);
+    color: #fff !important; border-radius: 999px;
+    padding: 5px 14px 5px 11px; font-size: 13px; font-weight: 600; line-height: 1.2;
+    text-decoration: none; white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(29, 78, 216, .30);
+    transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.v16-me .mi { width: 15px; height: 15px; flex: 0 0 15px; }
+.v16-me:hover { color: #fff !important; transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(29, 78, 216, .38); filter: brightness(1.06); }
+.v16-me:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(29, 78, 216, .30); filter: brightness(.96); }
+
+/* ==========================================================================
+   V1.58 slate 落地：玻璃光斑背景 + 主蓝 #2563EB + 玻璃卡片（只加样式，不动任何逻辑）
+   ⚠️ 覆盖 theme.css:29/35 的 body{background:...!important}，必须 html body.v16 提特异性。
+   ========================================================================== */
+:root {
+    --v16-pri: #2563EB; --v16-pri-d: #1d4ed8; --v16-pri-l: #eff6ff;
+    --v16-bg: #f8fafc; --v16-txt: #0f172a; --v16-sub: #475569;
+    --v16-line: #e2e8f0;
+    --v16-glass: rgba(255, 255, 255, .78);
+    --v16-glass-bd: rgba(226, 232, 240, .95);
+    --v16-app-bg:
+        radial-gradient(120% 60% at 12% -6%, rgba(37, 99, 235, .26), transparent 62%),
+        radial-gradient(95% 45% at 102% 0%, rgba(34, 211, 238, .20), transparent 55%),
+        radial-gradient(90% 55% at 48% 114%, rgba(139, 92, 246, .18), transparent 60%),
+        linear-gradient(180deg, #f8fafc 0%, #e2ebf6 100%);
+}
+html[data-theme="dark"] {
+    --v16-pri: #3b82f6; --v16-pri-d: #2563eb; --v16-pri-l: rgba(59, 130, 246, .16);
+    --v16-bg: #0f172a; --v16-txt: #f8fafc; --v16-sub: #94a3b8;
+    --v16-line: #2c3a52;
+    --v16-glass: rgba(30, 41, 59, .5);
+    --v16-glass-bd: rgba(255, 255, 255, .13);
+    --v16-app-bg:
+        radial-gradient(120% 60% at 12% -6%, rgba(59, 130, 246, .62), transparent 62%),
+        radial-gradient(95% 45% at 102% 0%, rgba(34, 211, 238, .42), transparent 55%),
+        radial-gradient(90% 55% at 48% 114%, rgba(139, 92, 246, .48), transparent 60%),
+        linear-gradient(180deg, #0f172a 0%, #182545 100%);
+}
+/* 玻璃光斑背景（压过 theme.css 全站 body !important）。
+   ⚠️ 光斑必须放 fixed 伪元素层：直接铺 body 时渐变按内容高度画一轮后 repeat 重复，
+   衔接处出现一条硬分界线；fixed 层则永远铺满视口、滚动不重绘。 */
+html body.v16 { background: var(--v16-bg) !important; }
+html body.v16::before {
+    content: '';
+    position: fixed; inset: 0; z-index: -1;
+    background: var(--v16-app-bg);
+    pointer-events: none;
+}
+/* 顶栏玻璃 */
+html body.v16 .v16-top {
+    background: var(--v16-glass) !important;
+    border-color: var(--v16-glass-bd) !important;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+/* 玻璃卡片（表格容器 .p0 保持纯色，避免 sticky 列透底） */
+html body.v16 .v16-card {
+    background: var(--v16-glass) !important;
+    border-color: var(--v16-glass-bd) !important;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+html body.v16 .v16-card.p0 { background: var(--v16-card) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* ===== V1.59b：看板顶部「管理」入口去方块感 → 玻璃胶囊 + 图标 ===== */
+.v16-manage .v16-btn.mg {
+    background: transparent;
+    border: 0;
+    color: var(--v16-sub);
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 6px 11px;
+    gap: 5px;
+    transition: background .15s ease, color .15s ease;
+}
+.v16-manage .v16-btn.mg:hover { background: var(--v16-pri-l); color: var(--v16-pri); }
+.v16-manage .v16-btn.mg:active { background: var(--v16-pri-l); color: var(--v16-pri); }
+.v16-manage .v16-btn.mg .mg-ico { width: 14px; height: 14px; flex: 0 0 14px; }
+@media (max-width: 480px) {
+    .v16-manage .v16-btn.mg { padding: 5px 8px; font-size: 11px; gap: 4px; }
+    .v16-manage .v16-btn.mg .mg-ico { width: 13px; height: 13px; flex: 0 0 13px; }
+}

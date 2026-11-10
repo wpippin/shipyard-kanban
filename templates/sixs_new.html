@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>6S 打分 · {{ ship_no }}船</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+    <script>
+        try {
+            var t = localStorage.getItem('shipyard_theme');
+            if (!t) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        } catch (e) {}
+    </script>
+    <link rel="stylesheet" href="/static/css/theme.css">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <style>
+    /* ===== V1.52 6S 打分页视觉层 =====
+       只用 v16.css 的 --v16-* 令牌；页面级覆盖一律 html body.v16.sn-page 提特异性，
+       用来压住 theme.css:29/35 的 body{background:...!important} 全站接管。 */
+    html body.v16.sn-page { background: var(--v16-bg-neutral) !important; }
+    html body.v16.sn-page .v16-top {
+        background: var(--v16-card-neutral); border-color: var(--v16-line-neutral);
+    }
+    /* 全站主题按钮改挂顶栏右侧：右下角会压住保存按钮，浮在列表上也会挡内容 */
+    html body.v16.sn-page #themeToggle {
+        top: 8px !important; bottom: auto !important; right: 12px !important;
+        width: 32px; height: 32px;
+    }
+    /* 返回键去掉胶囊边框，与效果图的纯文字返回一致 */
+    html body.v16.sn-page .v16-top .bk {
+        border: 0; background: transparent; padding-left: 0; padding-right: 4px;
+    }
+
+    .sn-wrap { max-width: 720px; margin: 0 auto; padding: 12px 12px 0; box-sizing: border-box; }
+
+    .sn-hero {
+        border-radius: 14px; padding: 18px 16px 16px; margin-bottom: 12px;
+        text-align: center; color: var(--v16-hero-fg);
+        background: linear-gradient(112deg, var(--v16-hero-a), var(--v16-hero-b));
+        box-shadow: 0 6px 18px var(--v16-hero-shadow);
+    }
+    .sn-hero-cap { font-size: 12px; letter-spacing: .5px; color: var(--v16-hero-sub); }
+    .sn-hero-num {
+        font-size: 46px; font-weight: 700; line-height: 1.2; margin: 2px 0 3px;
+        font-variant-numeric: tabular-nums; letter-spacing: -.5px;
+    }
+    .sn-hero-sub { font-size: 12.5px; color: var(--v16-hero-sub); }
+    .sn-hero-sub b { font-weight: 700; color: var(--v16-hero-fg); }
+    /* V1.58 半圆仪表盘：绿/黄/红按分数变色，随扣分实时更新 */
+    .sn-gauge { position: relative; width: 190px; max-width: 70%; margin: 2px auto 0; }
+    .sn-gauge svg { width: 100%; height: auto; display: block; }
+    .sn-gauge .track { fill: none; stroke: rgba(255, 255, 255, .20); stroke-width: 12; stroke-linecap: round; }
+    .sn-gauge .arc { fill: none; stroke: #34d399; stroke-width: 12; stroke-linecap: round;
+        stroke-dasharray: 100 100; stroke-dashoffset: 0;
+        transition: stroke-dashoffset .25s ease, stroke .25s ease; }
+    .sn-gauge-mid { position: absolute; left: 0; right: 0; bottom: -2px; text-align: center; }
+    .sn-gauge-mid .sn-hero-num { font-size: 42px; margin: 0; }
+    .sn-gauge-unit { font-size: 12px; color: var(--v16-hero-sub); margin-top: 1px; }
+
+    html body.v16.sn-page .sn-card,
+    html body.v16.sn-page .sn-grp {
+        background: var(--v16-card-neutral);
+        border: 1px solid var(--v16-line-neutral);
+        border-radius: 12px; overflow: hidden; margin-bottom: 10px;
+    }
+    .sn-line {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; border-bottom: 1px solid var(--v16-line-neutral);
+    }
+    .sn-line label {
+        flex: 0 0 58px; font-size: 14px; font-weight: 600;
+        color: var(--v16-txt); line-height: 1.3;
+    }
+    html body.v16.sn-page .sn-line input,
+    html body.v16.sn-page .sn-line select {
+        flex: 1 1 auto; min-width: 0; width: auto; height: 36px; box-sizing: border-box;
+        padding: 0 10px; font-size: 14px; border-radius: 8px;
+        border: 1px solid var(--v16-line-neutral);
+        background: var(--v16-card-neutral); color: var(--v16-txt);
+    }
+    html body.v16.sn-page .sn-line input:focus,
+    html body.v16.sn-page .sn-line select:focus {
+        border-color: var(--v16-accent);
+        box-shadow: 0 0 0 3px var(--v16-focus-ring); outline: none;
+    }
+    .sn-note {
+        padding: 10px 14px 12px; font-size: 12px; line-height: 1.6;
+        color: var(--v16-sub);
+    }
+
+    .sn-grp-t {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        padding: 9px 14px; font-size: 13px; font-weight: 700; color: var(--v16-txt);
+        background: var(--v16-subtle-neutral);
+        border-bottom: 1px solid var(--v16-line-neutral);
+    }
+    .sn-grp-s { flex: 0 0 auto; font-size: 12px; font-weight: 500; color: var(--v16-sub); }
+    .sn-grp-s.hit { color: var(--v16-bad); font-weight: 700; }
+
+    .sn-it { cursor: pointer; border-top: 1px solid var(--v16-line-neutral); }
+    .sn-it:first-of-type { border-top: 0; }
+    html body.v16.sn-page .sn-it.on { background: var(--v16-hit-row); }
+    .sn-it-in { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px 11px 14px; }
+    .sn-it .code {
+        flex: 0 0 40px; padding-top: 2px; font-size: 12px;
+        color: var(--v16-sub); font-family: Consolas, monospace;
+    }
+    .sn-it .txt { flex: 1 1 auto; min-width: 0; font-size: 13.5px; line-height: 1.5; color: var(--v16-txt); }
+    .sn-it .mark {
+        flex: 0 0 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; color: var(--v16-sub); user-select: none;
+        border: 1px solid var(--v16-line-neutral); border-radius: 8px;
+        background: var(--v16-card-neutral);
+        transition: background .15s ease, border-color .15s ease;
+    }
+    .sn-it.on .mark { background: var(--v16-bad); border-color: var(--v16-bad); font-size: 0; }
+    .sn-it.on .mark::after { content: '✓'; font-size: 17px; font-weight: 700; color: var(--v16-bad-ink); line-height: 1; }
+    .sn-notebox { display: none; padding: 0 14px 12px 64px; }
+    html body.v16.sn-page .sn-notebox input { height: 34px; font-size: 12px; }
+
+    html body.v16.sn-page .sn-bar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+        background: var(--v16-bg-neutral);
+        border-top: 1px solid var(--v16-line-neutral);
+        padding: 9px 14px calc(9px + env(safe-area-inset-bottom));
+    }
+    .sn-save {
+        display: block; width: 100%; height: 44px; cursor: pointer;
+        border: 1px solid var(--v16-line-neutral); border-radius: 10px;
+        background: var(--v16-card-neutral); color: var(--v16-txt);
+        font-family: inherit; font-size: 15px; font-weight: 700;
+        box-shadow: 0 1px 3px var(--v16-hero-shadow);
+    }
+    .sn-save:active { transform: translateY(1px); }
+    @media (min-width: 768px) {
+        .sn-wrap { padding: 20px 16px 0; }
+        .sn-hero { padding: 24px 16px 22px; }
+    }
+    </style>
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="v16 pb sn-page">
+
+<div class="v16-top">
+    <a class="bk" href="/sixs?week={{ week_start }}{% if biz == 'safety' %}&biz=safety{% endif %}">‹ 返回</a>
+    <h1 class="ttl">{{ ship_no }}船 6S 打分</h1>
+    <span class="rt"></span>
+</div>
+
+<div class="sn-wrap">
+
+    <section class="sn-hero">
+        <div class="sn-hero-cap">当前得分</div>
+        <div class="sn-gauge">
+            <svg viewBox="0 0 200 112" aria-hidden="true">
+                <path class="track" d="M18 100 A82 82 0 0 1 182 100"/>
+                <path class="arc" id="gauge-arc" d="M18 100 A82 82 0 0 1 182 100" pathLength="100"/>
+            </svg>
+            <div class="sn-gauge-mid">
+                <div class="sn-hero-num" id="sc">{{ base }}</div>
+                <div class="sn-gauge-unit">分</div>
+            </div>
+        </div>
+        <div class="sn-hero-sub">已扣分项目：<b id="dn">0</b> 项</div>
+    </section>
+
+    <section class="sn-card">
+        <div class="sn-line">
+            <label for="scorer">评分人</label>
+            <input id="scorer" type="text" placeholder="请输入">
+        </div>
+        <div class="sn-line">
+            <label for="wk">所属周</label>
+            <select id="wk">
+                {% for w in week_choices %}
+                <option value="{{ w['value'] }}" {% if w['value'] == week_start %}selected{% endif %}>{{ w['label'] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="sn-note">
+            每周打一次分；补录前几周在这里换周。同一条船同一周只保留一份评分。<br>
+            点一条记「不符合扣 1 分」，再点取消；共 {{ n_items }} 条，一条都不勾＝满分 {{ base }} 分，同样可以保存。
+        </div>
+    </section>
+
+    {% for gname, gset in groups %}
+    {% for gname2, items in gset %}
+    <section class="sn-grp">
+        <div class="sn-grp-t"><span>{{ gname2 }}</span><span class="sn-grp-s">未扣</span></div>
+        {% for code, text in items %}
+        <div class="sn-it" id="it-{{ code }}" onclick="tog('{{ code }}')">
+            <div class="sn-it-in">
+                <span class="code">{{ code }}</span>
+                <span class="txt">{{ text }}</span>
+                <span class="mark">扣</span>
+            </div>
+            <div class="sn-notebox" id="nb-{{ code }}">
+                <input id="nt-{{ code }}" type="text" placeholder="具体情况（选填）" onclick="event.stopPropagation()">
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endfor %}
+    {% endfor %}
+
+</div>
+
+<div class="sn-bar">
+    <button type="button" class="sn-save" onclick="save()">保存打分</button>
+</div>
+
+<div class="v16-toast" id="tb"></div>
+<script>
+var BASE={{ base }};
+var HIT={};
+function toast(m){var t=document.getElementById('tb');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1800);}
+function tog(code){
+  var it=document.getElementById('it-'+code);
+  var nb=document.getElementById('nb-'+code);
+  // V1.16.26：原来判的是 `if(HIT[code])`，而选中时存的是**空串** `HIT[code]=''`
+  //   —— 空串是假值 ⇒ 再点一次又走 else 重新选中，**永远取消不掉**（用户实测）
+  //   现在改成 `if(Object.prototype.hasOwnProperty.call(HIT,code))` 判「在不在里面」，
+  //   与值真假彻底脱钩；备注框也一起收起。
+  var on=Object.prototype.hasOwnProperty.call(HIT,code);
+  if(on){ delete HIT[code]; it.classList.remove('on'); if(nb) nb.style.display='none'; }
+  else { HIT[code]=''; it.classList.add('on'); if(nb) nb.style.display='block'; }
+  calc();
+}
+function calc(){
+  var n=0; for(var k in HIT) n++;
+  var sc=Math.max(0,BASE-n);
+  document.getElementById('dn').textContent=n;
+  document.getElementById('sc').textContent=sc;
+  var arc=document.getElementById('gauge-arc');
+  if(arc){
+    arc.style.strokeDashoffset=String(Math.max(0, 100 - sc*100/BASE));
+    arc.style.stroke = sc>=90 ? '#34d399' : (sc>=80 ? '#fbbf24' : '#f87171');
+  }
+  updateGroups();
+}
+/* V1.52：分组标题右侧「已扣 / 未扣」随勾选实时同步 */
+function updateGroups(){
+  var gs=document.querySelectorAll('.sn-grp');
+  for(var i=0;i<gs.length;i++){
+    var n=gs[i].querySelectorAll('.sn-it.on').length;
+    var lab=gs[i].querySelector('.sn-grp-s');
+    if(!lab) continue;
+    lab.textContent = n ? '已扣' : '未扣';
+    lab.className = 'sn-grp-s' + (n ? ' hit' : '');
+  }
+}
+function save(){
+  // V1.16.7：全打 100 分（一条不符合都没勾）也要能保存 —— 原来这里会拦住并提示「满分就不用保存」
+  var picks={};
+  for(var k in HIT){
+    var el=document.getElementById('nt-'+k);
+    picks[k]=(el&&el.value.trim())||'';
+  }
+  fetch('/sixs/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ship_no:'{{ ship_no }}',scorer:document.getElementById('scorer').value.trim(),picks:picks,week_start:document.getElementById('wk').value})
+  }).then(function(r){return r.json()}).then(function(j){
+    if(j.ok){ location.href='/sixs/'+j.id+'?week='+encodeURIComponent(j.week||'{{ week_start }}')+'{{ '&biz=safety' if biz == 'safety' else '' }}'; } else { toast(j.msg||'保存失败'); }
+  }).catch(function(){ toast('保存失败，重试一次'); });
+}
+</script>
+</body>
+</html>

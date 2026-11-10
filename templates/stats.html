@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>统计分析 - {{ ship.name }}</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <script src="/static/js/chart.umd.min.js"></script>
+    <script src="/static/js/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        .stat-card { border-radius: 12px; transition: transform .2s; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-num-sm { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
+        .stat-label-sm { font-size: .75rem; color: #6c757d; margin-top: 3px; line-height: 1.25; }
+        .chart-card { border-radius: 12px; }
+        .chart-container { position: relative; height: 320px; }
+        @media (max-width: 767.98px) {
+            .stat-num-sm { font-size: 1.15rem; }
+            .stat-label-sm { font-size: .68rem; }
+            .chart-container { height: 260px; }
+            .container-fluid { padding: 12px 8px; }
+        }
+        /* 作业区明细表：作业区列固定，左右拖动时始终可见 */
+        .area-table th, .area-table td { white-space: nowrap; }
+        .area-table thead th:first-child,
+        .area-table tbody td:first-child {
+            position: sticky;
+            left: 0;
+        }
+        .area-table thead th:first-child { background: #212529; z-index: 3; }
+        .area-table tbody td:first-child {
+            background: #fff;
+            z-index: 2;
+            /* V1.4.3：inset 单细线替代外扩阴影，消除手机拖动时的黑色方框残影 */
+            box-shadow: inset -1px 0 0 #dee2e6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .area-table tbody tr:hover td:first-child { background: #f1f3f5; }
+        /* ===== V1.4.5 品牌：统一海工蓝（移植自样板页 boards.html，仅视觉） ===== */
+        :root {
+            --navy: #14406b; --navy-deep: #0e2f50; --blue: #2f6fae;
+            --ink: #1f2a37; --muted: #64748b; --line: #e2e8f0; --bg: #eef3f8;
+            --card-radius: 16px;
+        }
+        body, body.bg-light { background: var(--bg); color: var(--ink); }
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 9px;
+            font-weight: 600; box-shadow: 0 4px 12px rgba(20,64,107,.18); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 18px 50px rgba(10,35,70,.22); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.brand-head .modal-title { color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 9px; }
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+    </style>
+    <style>
+        /* V1.59c：手机端标题居中一行，操作按钮第二行右对齐 */
+        @media (max-width: 575.98px){
+            .pg-top { display: block !important; }
+            .pg-top .pg-title { text-align: center; margin-bottom: 8px !important; }
+            .pg-top .pg-ctrl { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
+        }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="bg-light">
+<div class="container-fluid py-4 px-4">
+    <!-- 标题栏 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 pg-top">
+        <h2 class="mb-0 pg-title">
+            <span class="text-primary">{{ ship.name }}</span>
+            <small class="text-muted d-block fs-6 mt-1">收尾异常统计分析</small>
+        </h2>
+        <div class="pg-ctrl">
+            <a class="btn btn-outline-primary btn-sm" href="/board/{{ ship.id }}">← 返回看板</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/boards"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7a2 2 0 0 1 2-2h3.6l2 2H18.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V7z"/></svg> 切换看板</a>
+        </div>
+    </div>
+
+    {% if stats.total == 0 %}
+    <div class="alert alert-info text-center py-4">
+        <h5>该看板暂无收尾记录，无法生成统计</h5>
+        <p class="mb-0 text-muted">请先在看板上发起手尾任务，再来查看统计分析。</p>
+    </div>
+    {% else %}
+
+    <!-- 总体手尾状态分布（置顶）：5 个状态统计 + 状态分布柱状图 -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white fw-bold py-2">总体手尾状态分布</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card stat-card shadow-sm h-100 text-center py-2" style="border-left: 4px solid #0d6efd;">
+                                <div class="stat-num-sm text-primary">{{ stats.total }}</div>
+                                <div class="stat-label-sm">手尾总数</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card stat-card shadow-sm h-100 text-center py-2" style="border-left: 4px solid #198754;">
+                                <div class="stat-num-sm text-success">{{ stats.closed }}</div>
+                                <div class="stat-label-sm">已闭环（{{ stats.closure_rate }}%）</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card stat-card shadow-sm h-100 text-center py-2" style="border-left: 4px solid #0dcaf0;">
+                                <div class="stat-num-sm" style="color:#0aa2c0;">{{ stats.open_lt24 }}</div>
+                                <div class="stat-label-sm">未闭环 0-{{ l1 }}H（{{ stats.open_lt24_rate }}%）</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card stat-card shadow-sm h-100 text-center py-2" style="border-left: 4px solid #ffc107;">
+                                <div class="stat-num-sm text-warning">{{ stats.open_24_48 }}</div>
+                                <div class="stat-label-sm">超期 {{ l1 }}-{{ l2 }}H（{{ stats.overdue_24_48_rate }}%）</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl">
+                            <div class="card stat-card shadow-sm h-100 text-center py-2" style="border-left: 4px solid #dc3545;">
+                                <div class="stat-num-sm text-danger">{{ stats.open_gt48 }}</div>
+                                <div class="stat-label-sm">超期 &gt;{{ l2 }}H（{{ stats.overdue_gt48_rate }}%）</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手尾涉及单位分布 -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-8 mx-auto">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white fw-bold py-2">手尾涉及单位分布</div>
+                <div class="card-body">
+                    <div class="chart-container" style="max-width: 520px; margin: 0 auto;">
+                        <canvas id="areaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 各单位闭环率 -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white fw-bold py-2">各单位闭环率</div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: {{ chart_height }}px;">
+                        <canvas id="closureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 各单位超期率分档 -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card chart-card shadow-sm">
+                <div class="card-header bg-white py-2">
+                    <div class="fw-bold">各单位手尾时效分档</div>
+                    <div class="text-muted" style="font-size: 0.72rem; line-height: 1.2;">（&lt;{{ l1 }}H / {{ l1 }}-{{ l2 }}H / &gt;{{ l2 }}H）</div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: {{ chart_height }}px;">
+                        <canvas id="overdueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 各单位明细表 -->
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold py-2">各单位明细数据</div>
+                <div class="card-body table-responsive">
+                    <table class="table table-bordered table-hover align-middle text-center mb-0 area-table">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>单位</th>
+                                <th>所属部门</th>
+                                <th>手尾总数</th>
+                                <th>已闭环</th>
+                                <th>未闭环(&lt;{{ l1 }}H)</th>
+                                <th>超期({{ l1 }}-{{ l2 }}H)</th>
+                                <th>超期(&gt;{{ l2 }}H)</th>
+                                <th>闭环率</th>
+                                <th>超期率({{ l1 }}-{{ l2 }}H)</th>
+                                <th>超期率(&gt;{{ l2 }}H)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in stats.area_stats %}
+                            <tr>
+                                <td class="fw-bold text-start">{{ a.name }}</td>
+                                <td>{{ a.dept or '—' }}</td>
+                                <td>{{ a.total }}</td>
+                                <td><span class="text-success fw-bold">{{ a.closed }}</span></td>
+                                <td>{{ a.open_lt24 }}</td>
+                                <td><span class="text-warning fw-bold">{{ a.open_24_48 }}</span></td>
+                                <td><span class="text-danger fw-bold">{{ a.open_gt48 }}</span></td>
+                                <td>
+                                    <div class="progress" style="height: 20px; min-width: 80px;">
+                                        <div class="progress-bar bg-success" style="width: {{ a.closure_rate }}%;">{{ a.closure_rate }}%</div>
+                                    </div>
+                                </td>
+                                <td>{{ a.overdue_24_48_rate }}%</td>
+                                <td>{{ a.overdue_gt48_rate }}%</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<script>
+const STATS = {{ stats | tojson }};
+const TH_L1 = {{ l1 }};
+const TH_L2 = {{ l2 }};
+
+// 注册百分比数据标签插件
+if (window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+
+// ===== V1.5.7：图表文字颜色跟随主题 =====
+// 此前数据标签硬编码 #1f2d3d（深灰），切到暗色后柱顶/柱端数字在深色背景上几乎看不见。
+function _syVar(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    return (v || '').trim() || fallback;
+}
+const LABEL_COLOR = _syVar('--sy-text', '#1f2d3d');      // 数据标签（柱端数字）
+Chart.defaults.color = _syVar('--sy-muted', '#64748b');   // 轴刻度 / 图例文字
+Chart.defaults.borderColor = _syVar('--sy-border', 'rgba(0,0,0,.08)');
+function round(n) { return Math.round(n * 10) / 10; }
+// 占比格式化：占总数的百分比，小于 5% 不显示（避免小块文字重叠）
+function pctOfTotal(value, ctx) {
+    const data = ctx.dataset.data;
+    const total = data.reduce((a, b) => a + (b || 0), 0);
+    if (!total) return '';
+    const p = round((value || 0) / total * 100);
+    return p >= 5 ? p + '%' : '';
+}
+
+// 颜色池
+const COLORS = ['#4472C4','#ED7D31','#A5A5A5','#FFC000','#5B9BD5','#70AD47','#264478','#9E480E','#636363','#997300'];
+function color(i) { return COLORS[i % COLORS.length]; }
+
+// 单位分布 - 环形图（百分比直接显示在图例标签里，扇区上不放数字）
+const areaData = STATS.area_dist || [];
+const areaTotal = areaData.reduce((a, b) => a + b.count, 0);
+if (areaData.length) {
+    new Chart(document.getElementById('areaChart'), {
+        type: 'doughnut',
+        data: {
+            labels: areaData.map(d => {
+                const p = areaTotal ? round(d.count / areaTotal * 100) : 0;
+                return `${d.name}  ${p}%`;
+            }),
+            datasets: [{
+                data: areaData.map(d => d.count),
+                backgroundColor: areaData.map((_, i) => color(i)),
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: { position: (window.innerWidth < 576 ? 'bottom' : 'right'), labels: { font: { size: 12 }, boxWidth: 14 } },
+                tooltip: { callbacks: {
+                    label: ctx => {
+                        const d = areaData[ctx.dataIndex];
+                        const p = areaTotal ? round(d.count / areaTotal * 100) : 0;
+                        return ` ${d.name}: ${d.count} 项（${p}%）`;
+                    }
+                } },
+                datalabels: { display: false }
+            }
+        }
+    });
+}
+
+// 总体状态分布 - 柱状图（柱顶显示占总数百分比）
+new Chart(document.getElementById('statusChart'), {
+    type: 'bar',
+    data: {
+        labels: ['已闭环', '未闭环 <' + TH_L1 + 'H', '超期 ' + TH_L1 + '-' + TH_L2 + 'H', '超期 >' + TH_L2 + 'H'],
+        datasets: [{
+            label: '手尾数量',
+            data: [STATS.closed || 0, STATS.open_lt24 || 0, STATS.open_24_48 || 0, STATS.open_gt48 || 0],
+            backgroundColor: ['#198754', '#0dcaf0', '#ffc107', '#dc3545'],
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 22 } },
+        scales: {
+            x: {
+                ticks: {
+                    maxRotation: 0, minRotation: 0, autoSkip: false,
+                    font: (window.innerWidth < 768 ? { size: 9 } : { size: 11 })
+                }
+            },
+            y: { beginAtZero: true, ticks: { precision: 0 }, grace: '15%' }
+        },
+        plugins: {
+            legend: { display: false },
+            datalabels: {
+                anchor: 'end', align: 'end',
+                color: LABEL_COLOR, font: (window.innerWidth < 768 ? { weight: 'bold', size: 10 } : { weight: 'bold', size: 12 }),
+                formatter: pctOfTotal
+            }
+        }
+    }
+});
+
+// 各单位闭环率 - 横向柱状图（柱端显示闭环率百分比）
+const areaStats = STATS.area_stats || [];
+if (areaStats.length) {
+    new Chart(document.getElementById('closureChart'), {
+        type: 'bar',
+        data: {
+            labels: areaStats.map(d => d.name),
+            datasets: [{
+                label: '闭环率 (%)',
+                data: areaStats.map(d => d.closure_rate),
+                backgroundColor: '#198754',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { right: 36 } },
+            plugins: {
+                legend: { display: true, position: 'top' },
+                tooltip: { callbacks: {
+                    label: ctx => {
+                        const d = areaStats[ctx.dataIndex];
+                        return `闭环: ${d.closed}/${d.total} = ${d.closure_rate}%`;
+                    }
+                }},
+                datalabels: {
+                    anchor: 'end', align: 'end', clip: false,
+                    color: LABEL_COLOR, font: { weight: 'bold', size: 12 },
+                    formatter: v => (v !== null && v !== undefined) ? v + '%' : ''
+                }
+            },
+            scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } } }
+        }
+    });
+}
+
+// 各单位手尾时效分档 - 堆叠柱状图（每段显示该档占比，<5% 不显示防重叠）
+if (areaStats.length) {
+    new Chart(document.getElementById('overdueChart'), {
+        type: 'bar',
+        data: {
+            labels: areaStats.map(d => d.name),
+            datasets: [
+                {
+                    label: '未闭环<' + TH_L1 + 'H',
+                    data: areaStats.map(d => round(d.open_lt24 / d.total * 100)),
+                    backgroundColor: '#0dcaf0', borderRadius: 2
+                },
+                {
+                    label: '未闭环' + TH_L1 + '-' + TH_L2 + 'H',
+                    data: areaStats.map(d => d.overdue_24_48_rate),
+                    backgroundColor: '#ffc107', borderRadius: 2
+                },
+                {
+                    label: '未闭环>' + TH_L2 + 'H',
+                    data: areaStats.map(d => d.overdue_gt48_rate),
+                    backgroundColor: '#dc3545', borderRadius: 2
+                }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top', align: 'center',
+                    labels: {
+                        boxWidth: 10, boxHeight: 10, padding: 10,
+                        usePointStyle: true, pointStyle: 'rectRounded',
+                        font: (window.innerWidth < 768 ? { size: 9 } : { size: 10 })
+                    }
+                },
+                tooltip: { callbacks: {
+                    label: ctx => {
+                        const d = areaStats[ctx.dataIndex];
+                        const map = ['未闭环<' + TH_L1 + 'H', '未闭环' + TH_L1 + '-' + TH_L2 + 'H', '未闭环>' + TH_L2 + 'H'];
+                        const vals = [d.open_lt24, d.open_24_48, d.open_gt48];
+                        return `${map[ctx.datasetIndex]}: ${vals[ctx.datasetIndex]} 项 (${ctx.raw}%)`;
+                    }
+                }},
+                datalabels: {
+                    anchor: 'center', align: 'center',
+                    color: LABEL_COLOR, font: { weight: 'bold', size: 11 },
+                    formatter: v => (v >= 5 ? v + '%' : '')
+                }
+            },
+            scales: {
+                x: { stacked: true, beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } },
+                y: { stacked: true }
+            }
+        }
+    });
+}
+
+// ===== V1.5.7：亮/暗色切换时，同步刷新所有图表的文字颜色 =====
+(function () {
+    function refresh() {
+        const muted = _syVar('--sy-muted', '#64748b');
+        const text = _syVar('--sy-text', '#1f2d3d');
+        Chart.defaults.color = muted;
+        Chart.defaults.borderColor = _syVar('--sy-border', 'rgba(0,0,0,.08)');
+        const list = Chart.instances ? Object.values(Chart.instances) : [];
+        list.forEach(function (ch) {
+            try {
+                const p = ch.options && ch.options.plugins;
+                if (p && p.datalabels) { p.datalabels.color = text; }
+                if (ch.options && ch.options.scales) {
+                    Object.keys(ch.options.scales).forEach(function (k) {
+                        const sc = ch.options.scales[k];
+                        if (sc && sc.ticks) { sc.ticks.color = muted; }
+                    });
+                }
+                ch.update('none');
+            } catch (e) {}
+        });
+    }
+    new MutationObserver(refresh).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+})();
+</script>
+</body>
+</html>

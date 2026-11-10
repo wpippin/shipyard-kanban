@@ -1,0 +1,63 @@
+/* ==========================================================================
+   船舶总装业务协同 · 全局设计令牌（V1.47 UI 统一，第 1 步）
+   --------------------------------------------------------------------------
+   【唯一权威】所有色值只在 static/css/v16.css 的 --v16-* 里定义（亮/暗各一套）。
+   本文件是「别名层 + 形态令牌」，禁止写死任何颜色值。
+   统一加载顺序（16/16 模板一致）：
+       tokens.css          本文件，最前
+       bootstrap.min.css   框架（只有用 Bootstrap 的页面才引）
+       <页面内联 style>
+       theme.css           组件主题规则
+       v16.css             组件收敛规则，必须最后（含 !important 接管段）
+       theme.js  defer     亮暗切换 + 全局 Toast
+   --------------------------------------------------------------------------
+   令牌表（改设计只改这里 / v16.css，不要再逐页改）：
+     色彩  --v16-pri 主色 / --v16-bg 页面底 / --v16-card 卡片 / --v16-line 描边
+           --v16-txt 正文 / --v16-sub 辅助 / --v16-ok|warn|bad 状态
+     字号  --fs-h1 19 / --fs-h2 15.5 / --fs-body 14 / --fs-sub 12.5 / --fs-xs 11.5
+     间距  --sp-1 4 / --sp-2 8 / --sp-3 12 / --sp-4 16 / --sp-5 24
+     圆角  --rd-xs 6 / --rd-sm 8 / --rd 10（--rd-lg 已收敛为 10） / --rd-pill 999
+     主操作 --v16-accent / --v16-accent-ink（见 v16.css，亮暗各一套；低饱和，不用渐变阴影）
+     组件  .v16-btn / .v16-card / .v16-tag / .v16-chip / .v16-entry ...（见 v16.css）
+   ========================================================================== */
+
+:root {
+  /* ---- 形态令牌：新页面一律用这组，不要再手写像素 ---- */
+  --fs-h1: 19px; --fs-h2: 15.5px; --fs-body: 14px; --fs-sub: 12.5px; --fs-xs: 11.5px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --rd-xs: 6px; --rd-sm: 8px; --rd: 10px; --rd-lg: 10px; --rd-pill: 999px;
+
+  /* ---- 别名层：theme.css 的 --sy-* 全部映射到唯一色板 ----
+     带 !important 是为了压住各模板内联 :root 里历史遗留的两套写死值
+     （7 个页面墨蓝 #14406b / 3 个页面 Demo 蓝 #1d4ed8）。
+     var() 在计算时解析，亮/暗会随 v16.css 的 --v16-* 自动切换，
+     因此本文件不需要再写一遍 html[data-theme="dark"]。 */
+  --sy-bg:            var(--v16-bg)     !important;
+  --sy-surface:       var(--v16-card)   !important;
+  --sy-surface-2:     var(--v16-graybg) !important;
+  --sy-surface-3:     var(--v16-line)   !important;
+  --sy-border:        var(--v16-line)   !important;
+  --sy-text:          var(--v16-txt)    !important;
+  --sy-text-2:        var(--v16-txt)    !important;
+  --sy-muted:         var(--v16-sub)    !important;
+  --sy-accent:        var(--v16-pri)    !important;
+  --sy-accent-strong: var(--v16-accent) !important;
+  --sy-accent-2:      var(--v16-pri-d)  !important;
+  --sy-accent-soft:   var(--v16-pri-l)  !important;
+  --sy-success:       var(--v16-ok)     !important;
+  --sy-warning:       var(--v16-warn)   !important;
+  --sy-danger:        var(--v16-bad)    !important;
+  --sy-info:          var(--v16-pri)    !important;
+
+  /* ---- 模板内联 :root 的历史局部变量，一并收敛 ---- */
+  --navy:             var(--v16-pri)    !important;
+  --navy-deep:        var(--v16-pri-d)  !important;
+  --blue:             var(--v16-pri)    !important;
+  --bg:               var(--v16-bg)     !important;
+  --ink:              var(--v16-txt)    !important;
+  --line:             var(--v16-line)   !important;
+  --muted:            var(--v16-sub)    !important;
+  --card-radius:      var(--rd-lg)      !important;
+  --tile-icon-bg:     var(--v16-pri-l)  !important;
+  --tile-icon-fg:     var(--v16-pri)    !important;
+}

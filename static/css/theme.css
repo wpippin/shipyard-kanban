@@ -1,0 +1,644 @@
+/* =====================================================
+   船舶完整性管理看板 - 亮色 / 暗色主题系统 (V1.5.1 UI)
+   默认亮色；<html data-theme="dark"> 时切换为暗色。
+   ===================================================== */
+
+/* V1.47 UI 统一：色值令牌已收敛到 tokens.css（唯一别名层）-> v16.css（唯一色板）。
+   本文件不再定义任何颜色变量；亮/暗切换由 v16.css 的 --v16-* 自动完成。 */
+:root {
+  /* 圆角与阴影属于形态 / 层级令牌，不是色板，保留在此 */
+  --sy-radius-sm: 8px;
+  --sy-radius: 12px;
+  --sy-radius-lg: 16px;
+  --sy-radius-xl: 20px;
+  --sy-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+}
+
+/* 暗色色值不再在本文件重复定义：tokens.css 的 --sy-* 全部指向 var(--v16-*)，
+   而 --v16-* 会在 html[data-theme="dark"] 时由 v16.css 自动切到暗色值。
+   仅阴影保留暗色专属值（阴影不属于色板）。 */
+html[data-theme="dark"] { --sy-shadow: 0 12px 40px rgba(0, 0, 0, .45); }
+
+/* 切换动画 */
+body, .card, .modal-content, .table, .form-control, .form-select, .btn, .dropdown-menu, .suggest-dropdown, .list-group-item, .nav-tabs .nav-link, .page-link {
+  transition: background-color .25s ease, color .18s ease, border-color .25s ease, box-shadow .25s ease;
+}
+
+/* 顶层背景与文字 */
+body {
+  background: var(--sy-bg) !important;
+  color: var(--sy-text);
+}
+
+html[data-theme="dark"] body.bg-light,
+html[data-theme="dark"] body {
+  background: var(--sy-bg) !important;
+  color: var(--sy-text) !important;
+}
+
+/* 通用文字色覆盖 */
+.text-primary { color: var(--sy-accent) !important; }
+.text-muted { color: var(--sy-muted) !important; }
+.text-secondary { color: var(--sy-muted) !important; }
+.text-success { color: var(--sy-success) !important; }
+.text-warning { color: var(--sy-warning) !important; }
+.text-danger { color: var(--sy-danger) !important; }
+.text-info { color: var(--sy-info) !important; }
+.text-dark { color: var(--sy-text) !important; }
+.text-body { color: var(--sy-text) !important; }
+
+/* 链接 */
+a { color: var(--sy-accent); }
+a:hover { color: var(--sy-accent-2); }
+
+/* 卡片 */
+.card {
+  background: var(--sy-surface);
+  border: 1px solid var(--sy-border);
+  border-radius: var(--sy-radius-lg);
+  color: var(--sy-text);
+  box-shadow: var(--sy-shadow);
+}
+.card-header {
+  background: var(--sy-surface-2);
+  border-bottom: 1px solid var(--sy-border);
+  color: var(--sy-text);
+  border-radius: var(--sy-radius-lg) var(--sy-radius-lg) 0 0 !important;
+}
+.card-footer {
+  background: var(--sy-surface-2);
+  border-top: 1px solid var(--sy-border);
+}
+.card-body { color: var(--sy-text); }
+.card-title { color: var(--sy-text); }
+
+/* 按钮 */
+.btn {
+  border-radius: var(--sy-radius);
+  font-weight: 600;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--sy-accent-2) 0%, var(--sy-accent) 100%);
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, .35);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--sy-accent) 0%, var(--sy-info) 100%);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-outline-primary {
+  color: var(--sy-accent);
+  border-color: var(--sy-accent);
+  background: transparent;
+}
+.btn-outline-primary:hover {
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent);
+  border-color: var(--sy-accent);
+}
+
+.btn-secondary {
+  background: var(--sy-surface-2);
+  border-color: var(--sy-border);
+  color: var(--sy-text);
+}
+.btn-secondary:hover {
+  background: var(--sy-surface-3);
+  border-color: var(--sy-border);
+  color: var(--sy-text);
+}
+.btn-outline-secondary {
+  color: var(--sy-muted);
+  border-color: var(--sy-border);
+  background: transparent;
+}
+.btn-outline-secondary:hover {
+  background: var(--sy-surface-2);
+  color: var(--sy-text);
+  border-color: var(--sy-border);
+}
+
+.btn-success { background: var(--sy-success); border-color: var(--sy-success); color: #fff; }
+.btn-success:hover { filter: brightness(1.1); color: #fff; }
+.btn-danger { background: var(--sy-danger); border-color: var(--sy-danger); color: #fff; }
+.btn-danger:hover { filter: brightness(1.1); color: #fff; }
+.btn-warning { background: var(--sy-warning); border-color: var(--sy-warning); color: #000; }
+.btn-info { background: var(--sy-info); border-color: var(--sy-info); color: #000; }
+
+/* 品牌按钮（项目自定义类） */
+.btn-brand {
+  background: linear-gradient(135deg, var(--sy-accent-2), var(--sy-accent));
+  color: #fff;
+  border: none;
+  border-radius: var(--sy-radius);
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, .35);
+}
+.btn-brand:hover {
+  background: linear-gradient(135deg, var(--sy-accent), var(--sy-info));
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+/* 表单 */
+.form-control, .form-select {
+  background: var(--sy-surface-2);
+  border: 1px solid var(--sy-border);
+  color: var(--sy-text);
+  border-radius: var(--sy-radius);
+}
+.form-control:focus, .form-select:focus {
+  background: var(--sy-surface);
+  border-color: var(--sy-accent);
+  color: var(--sy-text);
+  box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, .25);
+}
+.form-control::placeholder { color: var(--sy-muted); }
+.form-label { color: var(--sy-text); font-weight: 600; }
+.input-group-text {
+  background: var(--sy-surface-2);
+  border-color: var(--sy-border);
+  color: var(--sy-muted);
+}
+
+/* 下拉菜单 */
+.dropdown-menu {
+  background: var(--sy-surface);
+  border: 1px solid var(--sy-border);
+  box-shadow: var(--sy-shadow);
+  border-radius: var(--sy-radius);
+}
+.dropdown-item { color: var(--sy-text); }
+.dropdown-item:hover, .dropdown-item:focus {
+  background: var(--sy-surface-2);
+  color: var(--sy-text);
+}
+.dropdown-divider { border-top-color: var(--sy-border); }
+
+/* 联想下拉 */
+.suggest-dropdown {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-border) !important;
+  box-shadow: var(--sy-shadow);
+}
+.suggest-item { border-bottom-color: var(--sy-border); color: var(--sy-text); }
+.suggest-item:hover, .suggest-item:active { background: var(--sy-surface-2) !important; }
+.suggest-label { color: var(--sy-text); }
+.suggest-sub { color: var(--sy-muted); }
+.suggest-empty { color: var(--sy-muted); }
+
+/* 表格 */
+.table {
+  --bs-table-bg: var(--sy-surface);
+  --bs-table-color: var(--sy-text);
+  --bs-table-border-color: var(--sy-border);
+  --bs-table-striped-bg: var(--sy-surface-2);
+  --bs-table-hover-bg: rgba(14, 165, 233, .06);
+  --bs-table-hover-color: var(--sy-text);
+  color: var(--sy-text);
+}
+.table thead th {
+  background: var(--sy-surface-2) !important;
+  color: var(--sy-text);
+  border-color: var(--sy-border);
+  font-weight: 700;
+}
+.table-dark {
+  --bs-table-bg: var(--sy-surface-2) !important;
+  --bs-table-color: var(--sy-text) !important;
+  --bs-table-border-color: var(--sy-border) !important;
+}
+
+/* 模态框 */
+.modal-content {
+  background: var(--sy-surface);
+  border: 1px solid var(--sy-border);
+  box-shadow: var(--sy-shadow);
+  border-radius: var(--sy-radius-lg);
+}
+.modal-header {
+  background: var(--sy-surface-2);
+  border-bottom-color: var(--sy-border);
+  color: var(--sy-text);
+}
+.modal-title { color: var(--sy-text); }
+.modal-body { color: var(--sy-text); }
+.modal-footer { border-top-color: var(--sy-border); background: var(--sy-surface-2); }
+.modal .btn-close { filter: invert(1); }
+
+/* 警告 / 提示 */
+.alert-info {
+  background: var(--sy-accent-soft);
+  border-color: rgba(14, 165, 233, .2);
+  color: var(--sy-accent-2);
+}
+.alert-success { background: rgba(34, 197, 94, .12); border-color: rgba(34, 197, 94, .2); color: var(--sy-success); }
+.alert-warning { background: rgba(245, 158, 11, .12); border-color: rgba(245, 158, 11, .2); color: var(--sy-warning); }
+.alert-danger { background: rgba(239, 68, 68, .12); border-color: rgba(239, 68, 68, .2); color: var(--sy-danger); }
+
+/* 徽标 */
+.badge.bg-primary { background: var(--sy-accent) !important; color: #fff; }
+.badge.bg-secondary { background: var(--sy-surface-3) !important; color: var(--sy-text); }
+.badge.bg-success { background: var(--sy-success) !important; }
+.badge.bg-danger { background: var(--sy-danger) !important; }
+.badge.bg-warning { background: var(--sy-warning) !important; color: #000; }
+
+.badge-soft {
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent-2);
+  border-radius: 999px;
+}
+.badge-soft .dot { background: var(--sy-accent); }
+
+/* 列表组 / 分页 / 导航 */
+.list-group-item {
+  background: var(--sy-surface);
+  border-color: var(--sy-border);
+  color: var(--sy-text);
+}
+.page-link {
+  background: var(--sy-surface);
+  border-color: var(--sy-border);
+  color: var(--sy-accent);
+}
+.page-link:hover { background: var(--sy-surface-2); color: var(--sy-accent); }
+.page-item.active .page-link { background: var(--sy-accent); border-color: var(--sy-accent); color: #fff; }
+.nav-tabs .nav-link { color: var(--sy-muted); border-color: var(--sy-border); }
+.nav-tabs .nav-link.active { background: var(--sy-surface); color: var(--sy-accent); border-color: var(--sy-border) var(--sy-border) var(--sy-surface); }
+
+/* 项目自定义组件适配 */
+.login-user { color: var(--sy-accent); }
+.lvl-tag { border-radius: 6px; }
+.lvl-tag.l1 { background: var(--sy-success); }
+.lvl-tag.l2 { background: var(--sy-info); }
+.lvl-tag.l3 { background: var(--sy-danger); }
+
+/* 照片缩略图边框 */
+.photo-thumb { border-color: var(--sy-border); border-radius: var(--sy-radius-sm); }
+
+/* 统计图表容器 */
+.chart-card, .stat-card, .info-card, .log-card { background: var(--sy-surface); border-color: var(--sy-border); }
+
+/* 系统清单管理面板 */
+.manage-panel {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-border) !important;
+}
+
+/* ===== 全局 Toast 提示（替代 alert，兼容微信/船海智云 WebView） ===== */
+#wbToastBox {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(92vw, 420px);
+  pointer-events: none;
+}
+.wb-toast {
+  pointer-events: auto;
+  padding: 12px 16px;
+  border-radius: var(--sy-radius);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 10px 28px rgba(0,0,0,.22);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: wbToastIn .28s ease;
+  word-break: break-all;
+}
+.wb-toast.ok { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.wb-toast.err { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.wb-toast.warn { background: linear-gradient(135deg, #d97706, #f59e0b); color: #1f2937; }
+.wb-toast.info { background: linear-gradient(135deg, var(--sy-accent-2), var(--sy-accent)); }
+.wb-toast .wb-toast-icon { flex: 0 0 20px; width: 20px; height: 20px; }
+.wb-toast .wb-toast-close {
+  flex: 0 0 18px; width: 18px; height: 18px; margin-left: auto;
+  opacity: .75; cursor: pointer; border: none; background: transparent; color: currentColor; padding: 0;
+}
+.wb-toast .wb-toast-close:hover { opacity: 1; }
+@keyframes wbToastIn {
+  from { opacity: 0; transform: translateY(-12px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes wbToastOut {
+  to { opacity: 0; transform: translateY(-10px) scale(.96); }
+}
+.wb-toast.hiding { animation: wbToastOut .22s ease forwards; }
+
+/* 标题栏强调 */
+.board-title small { color: var(--sy-muted) !important; }
+
+/* 暗色模式下修正部分模板硬编码白底（如 my.html 序号列 sticky） */
+html[data-theme="dark"] #myTable th:nth-child(1),
+html[data-theme="dark"] #myTable td:nth-child(1),
+html[data-theme="dark"] #myTable th:nth-child(2),
+html[data-theme="dark"] #myTable td:nth-child(2),
+html[data-theme="dark"] .area-table thead th:first-child,
+html[data-theme="dark"] .area-table tbody td:first-child {
+  background: var(--sy-surface) !important;
+}
+html[data-theme="dark"] #myTable thead th:nth-child(1),
+html[data-theme="dark"] #myTable thead th:nth-child(2),
+html[data-theme="dark"] .area-table thead th:first-child {
+  background: var(--sy-surface-2) !important;
+}
+
+/* 主题切换按钮（固定右下角；V1.20：缩小 + 收敛阴影） */
+#themeToggle {
+  position: fixed;
+  bottom: 26px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line, #e2e8f0);
+  background: #fff;
+  color: #64748b;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+#themeToggle:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(15, 23, 42, .16); color: #1d4ed8; }
+#themeToggle:active { transform: translateY(0) scale(0.98); }
+#themeToggle svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 暗色模式下顶栏模拟（仅移动端可见，增强科技感） */
+.sy-status-bar {
+  display: none;
+}
+@media (max-width: 767.98px) {
+  .sy-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--sy-muted);
+    padding: 4px 8px;
+    margin: -8px -8px 8px -8px;
+  }
+  html[data-theme="dark"] .sy-status-bar { color: #94a3b8; }
+}
+
+/* =====================================================
+   暗色模式硬编码颜色强制覆盖（各页面旧版局部 :root）
+   ===================================================== */
+html[data-theme="dark"] {
+  /* 覆盖页面内自定义 --navy / --ink / --muted / --bg 等局部变量 */
+  --navy: var(--sy-accent) !important;
+  --blue: var(--sy-accent-2) !important;
+  --ink: var(--sy-text) !important;
+  --muted: var(--sy-muted) !important;
+  --line: var(--sy-border) !important;
+  --bg: var(--sy-bg) !important;
+}
+
+/* 看板列表 */
+html[data-theme="dark"] .ship-card { background: var(--sy-surface) !important; border-color: var(--sy-border) !important; }
+html[data-theme="dark"] .ship-card .card-title { color: var(--sy-accent) !important; }
+html[data-theme="dark"] .ship-card .ship-no,
+html[data-theme="dark"] .ship-card .stat-label,
+html[data-theme="dark"] .ship-card small,
+html[data-theme="dark"] .ship-card .text-muted { color: var(--sy-muted) !important; }
+html[data-theme="dark"] .ship-card .stat-num { color: var(--sy-text) !important; }
+html[data-theme="dark"] .ship-card .stat-num.text-danger { color: var(--sy-danger) !important; }
+html[data-theme="dark"] .ship-card .stat-num.text-dark { color: var(--sy-text) !important; }
+html[data-theme="dark"] .empty-tip { background: var(--sy-surface) !important; border-color: var(--sy-border) !important; color: var(--sy-muted) !important; }
+html[data-theme="dark"] .board-title small { color: var(--sy-muted) !important; }
+html[data-theme="dark"] .login-user { color: var(--sy-accent) !important; }
+
+/* 覆盖 .btn-create-board / .btn-brand 渐变里的海工蓝 */
+html[data-theme="dark"] .btn-create-board,
+html[data-theme="dark"] .btn-brand {
+  background: linear-gradient(135deg, var(--sy-accent-2) 0%, var(--sy-accent) 100%) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 14px rgba(125, 211, 252, .35) !important;
+}
+html[data-theme="dark"] .btn-create-board:hover,
+html[data-theme="dark"] .btn-brand:hover {
+  background: linear-gradient(135deg, var(--sy-accent) 0%, var(--sy-info) 100%) !important;
+  color: #0f172a !important;
+}
+
+/* 用户中心 */
+html[data-theme="dark"] .chain-text,
+html[data-theme="dark"] .desc-text { color: var(--sy-text-2) !important; }
+html[data-theme="dark"] .stat-num { color: var(--sy-text) !important; }
+html[data-theme="dark"] .scope-tabs .nav-pills .nav-link { color: var(--sy-muted); }
+html[data-theme="dark"] .scope-tabs .nav-pills .nav-link.active { background: var(--sy-accent); color: #0f172a !important; }
+html[data-theme="dark"] .badge-mini { color: var(--sy-text) !important; }
+
+/* 系统清单 */
+html[data-theme="dark"] .sys-row-name { color: var(--sy-text) !important; }
+html[data-theme="dark"] .table-dark {
+  --bs-table-bg: var(--sy-surface-2) !important;
+  --bs-table-color: var(--sy-text) !important;
+  --bs-table-border-color: var(--sy-border) !important;
+  --bs-table-striped-bg: var(--sy-surface-3) !important;
+}
+html[data-theme="dark"] .manage-panel {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-border) !important;
+  color: var(--sy-text) !important;
+}
+
+/* 人员芯片 */
+html[data-theme="dark"] .pick-chip-pill {
+  background: var(--sy-accent-soft) !important;
+  color: var(--sy-accent) !important;
+  border-color: rgba(125, 211, 252, .35) !important;
+}
+html[data-theme="dark"] .pick-chip-pill .pick-chip-x { background: var(--sy-accent-2) !important; }
+html[data-theme="dark"] .uc-chip.uc-ok {
+  background: rgba(74, 222, 128, .15) !important;
+  color: var(--sy-success) !important;
+  border-color: rgba(74, 222, 128, .35) !important;
+}
+html[data-theme="dark"] .uc-chip.uc-pending {
+  background: rgba(251, 191, 36, .15) !important;
+  color: var(--sy-warning) !important;
+  border-color: rgba(251, 191, 36, .35) !important;
+}
+
+/* 模态框头（各页硬编码 navy 渐变） */
+html[data-theme="dark"] .brand-head {
+  background: linear-gradient(135deg, var(--sy-accent-2), var(--sy-accent)) !important;
+  color: #0f172a !important;
+}
+html[data-theme="dark"] .danger-head { background: linear-gradient(135deg, #b91c1c, var(--sy-danger)) !important; }
+
+/* 弹窗内说明卡 */
+html[data-theme="dark"] .modal .alert-light {
+  background: var(--sy-surface-2) !important;
+  border-color: var(--sy-border) !important;
+  color: var(--sy-text) !important;
+}
+
+/* 表单文件选择框（WebKit 暗色下按钮不协调） */
+html[data-theme="dark"] input[type="file"]::file-selector-button {
+  background: var(--sy-surface-3);
+  color: var(--sy-text);
+  border-color: var(--sy-border);
+}
+
+/* 登录日志 */
+html[data-theme="dark"] .log-table thead tr:first-child th {
+  background: var(--sy-surface-2) !important;
+  color: var(--sy-text) !important;
+}
+html[data-theme="dark"] .log-table thead tr.filter-row th {
+  background: var(--sy-surface) !important;
+}
+html[data-theme="dark"] .log-table tbody tr:nth-child(even) td {
+  background: rgba(125, 211, 252, .04) !important;
+}
+html[data-theme="dark"] .log-table tbody tr.fail td {
+  background: rgba(248, 113, 113, .08) !important;
+}
+
+/* 修正 Bootstrap 5 暗色下部分组件 */
+html[data-theme="dark"] .dropdown-menu { background: var(--sy-surface); border-color: var(--sy-border); }
+html[data-theme="dark"] .dropdown-item { color: var(--sy-text); }
+html[data-theme="dark"] .dropdown-item:hover { background: var(--sy-surface-2); color: var(--sy-text); }
+
+/* 详情页 */
+html[data-theme="dark"] .lvl-tag { color: #0f172a !important; }
+
+/* 系统清单表格 */
+html[data-theme="dark"] .sys-table thead th {
+  background: var(--sy-surface-2) !important;
+  color: var(--sy-text) !important;
+  border-bottom-color: var(--sy-border) !important;
+}
+html[data-theme="dark"] .sys-table tbody tr:nth-child(even) td { background: rgba(125, 211, 252, .04) !important; }
+html[data-theme="dark"] .sys-table tbody tr:hover td { background: rgba(125, 211, 252, .08) !important; }
+html[data-theme="dark"] .sys-row-name { color: var(--sy-text) !important; }
+html[data-theme="dark"] .sys-row-index { color: var(--sy-muted) !important; }
+
+/* 全局兜底：所有裸 text-muted 在暗色下不要太灰 */
+html[data-theme="dark"] .text-muted { color: var(--sy-muted) !important; }
+html[data-theme="dark"] small { color: var(--sy-muted) !important; }
+html[data-theme="dark"] .form-text { color: var(--sy-muted) !important; }
+html[data-theme="dark"] .form-label { color: var(--sy-text) !important; }
+
+/* 亮色模式下把关键文字也提亮一点，让整体更清爽 */
+:root .ship-card .card-title { color: var(--navy, #14406b); }
+:root .stat-label { color: var(--muted, #64748b); letter-spacing: .5px; }
+:root .chain-text { color: #334155; }
+:root .desc-text { color: #475569; }
+
+/* =====================================================
+   V1.5.6 修复包（暗色模式补齐 + 表头对齐 + 主题按钮遮挡）
+   集中在此文件，改一处全站生效；各页模板无需改动。
+   ===================================================== */
+
+/* ---- 1) 暗色模式：Bootstrap 写死的白底工具类（统计页板块标题等）---- */
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-light {
+  background: var(--sy-surface-2) !important;
+  color: var(--sy-text) !important;
+}
+html[data-theme="dark"] .card-header { color: var(--sy-text) !important; }
+html[data-theme="dark"] .table-light,
+html[data-theme="dark"] .table-light > :not(caption) > * > * {
+  background: var(--sy-surface-2) !important;
+  color: var(--sy-text) !important;
+}
+
+/* ---- 2) 暗色模式：看板表格固定列（序号 / 系统名称）原写死 #fff ---- */
+html[data-theme="dark"] #dataTable tbody tr { background: var(--sy-surface) !important; }
+html[data-theme="dark"] #dataTable tbody td:nth-child(1),
+html[data-theme="dark"] #dataTable tbody td:nth-child(2) {
+  background: var(--sy-surface) !important;
+}
+html[data-theme="dark"] #dataTable thead th:nth-child(1),
+html[data-theme="dark"] #dataTable thead th:nth-child(2) {
+  background: var(--sy-surface-2) !important;
+}
+html[data-theme="dark"] #dataTable tbody tr:hover,
+html[data-theme="dark"] #dataTable tbody tr:hover td:nth-child(1),
+html[data-theme="dark"] #dataTable tbody tr:hover td:nth-child(2) {
+  background: var(--sy-surface-2) !important;
+}
+
+/* ---- 3) 暗色模式：用户管理「姓名」固定列 ---- */
+html[data-theme="dark"] #userTable tbody td.sticky-name { background: var(--sy-surface) !important; }
+html[data-theme="dark"] #userTable thead th.sticky-name { background: var(--sy-surface-2) !important; }
+html[data-theme="dark"] #userTable tbody tr:hover td.sticky-name { background: var(--sy-surface-2) !important; }
+
+/* ---- 4) 暗色模式：列头筛选浮层 / 人员联想下拉（原白底 + 浅字，看不见）---- */
+html[data-theme="dark"] .cf-pop,
+html[data-theme="dark"] .suggest-dropdown {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-border) !important;
+  color: var(--sy-text) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .55) !important;
+}
+html[data-theme="dark"] .suggest-item {
+  color: var(--sy-text) !important;
+  border-bottom-color: var(--sy-border) !important;
+}
+html[data-theme="dark"] .suggest-item:hover,
+html[data-theme="dark"] .suggest-item:active { background: var(--sy-surface-2) !important; }
+html[data-theme="dark"] .cf-pop .form-label,
+html[data-theme="dark"] .cf-pop .cf-tip { color: var(--sy-muted) !important; }
+
+/* ---- 5) 暗色模式：自研确认弹层（模板内联白底 + 深字）---- */
+html[data-theme="dark"] #uiConfirmBox > div,
+html[data-theme="dark"] #urgeConfirmBox > div {
+  background: var(--sy-surface) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .6) !important;
+}
+html[data-theme="dark"] #uiConfirmBox #uiConfirmMsg,
+html[data-theme="dark"] #urgeConfirmBox #urgeConfirmMsg { color: var(--sy-text) !important; }
+
+/* ---- 6) 表头对齐：筛选三角改右上角绝对定位，不再占据文字行 ----
+   此前三角与标题同处一个竖向 flex 容器，导致"带筛选的列"标题上移、
+   与"不带筛选的列"标题不在同一水平线；改为浮在右上角后，所有列头文字对齐。 */
+#dataTable thead th {
+  vertical-align: middle !important;
+  padding: 10px 4px 4px !important;
+}
+#dataTable thead th .cf-h { display: inline !important; }
+/* V1.5.7：整格可点 —— 把按钮热区铺满整个表头单元格。
+   此前只有右上角 13x9 的小三角可点，用户反馈"太反人类"。
+   视觉上仍只在右上角显示一个小三角（见下方 ::after 定位）。 */
+#dataTable thead th .cf-h .cf-btn {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  opacity: 1 !important;
+  background: transparent !important;
+  border: 0 !important;
+  cursor: pointer !important;
+}
+#dataTable thead th .cf-h .cf-btn::after {
+  position: absolute !important;
+  top: 3px !important;
+  right: 3px !important;
+  margin: 0 !important;
+  opacity: .5;
+}
+#dataTable thead th .cf-h .cf-btn:hover { background: rgba(125, 211, 252, .12) !important; }
+#dataTable thead th .cf-h .cf-btn:hover::after { opacity: 1; }
+#dataTable thead th .cf-h .cf-btn.on::after { opacity: 1; }
+
+/* ---- 7) 主题切换按钮：弹窗打开时隐藏，避免压住弹窗底部按钮 ---- */
+body.modal-open #themeToggle { display: none !important; }

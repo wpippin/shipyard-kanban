@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提醒时间配置 - 船舶完整性管理</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <style>
+        body { background: #f4f6f9; }
+        .card { border-radius: 14px; }
+        .num-input { font-size: 1.25rem; font-weight: 700; text-align: center; }
+        .unit-suffix { font-size: .95rem; color: #6c757d; }
+        @media (max-width: 575.98px) {
+            .container { padding: 12px 10px; }
+            .btn-block-mobile { width: 100%; }
+        }
+        /* ===== V1.4.5 品牌：统一海工蓝（移植自样板页 boards.html，仅视觉） ===== */
+        :root {
+            --navy: #14406b; --navy-deep: #0e2f50; --blue: #2f6fae;
+            --ink: #1f2a37; --muted: #64748b; --line: #e2e8f0; --bg: #eef3f8;
+            --card-radius: 16px;
+        }
+        body { background: var(--bg); color: var(--ink); }
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 9px;
+            font-weight: 600; box-shadow: 0 4px 12px rgba(20,64,107,.18); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        .modal-content { border: none; border-radius: 16px; box-shadow: 0 18px 50px rgba(10,35,70,.22); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.brand-head .modal-title { color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 9px; }
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+    </style>
+    <style>
+        /* ===== V1.21：移动端列表化重构（去密集表格 / 单一保存按钮 / 三色状态卡） ===== */
+        .th-tip { background: #f8fafc; border: 1px solid #eef1f5; color: #64748b;
+            border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.7; margin-bottom: 14px; }
+        .th-tip b { color: #475569; }
+        .th-ship { border: 1px solid #eef1f5; border-radius: 12px; padding: 12px 14px;
+            margin-bottom: 10px; background: #fff; }
+        .th-ship-hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .th-ship-hd .nm { font-weight: 700; font-size: 14px; color: #1f2a37; }
+        .th-ship-hd .no { font-size: 12px; color: #94a3b8; margin-top: 1px; }
+        .th-tag { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; border-radius: 999px;
+            padding: 2px 10px; background: #f1f5f9; color: #94a3b8; white-space: nowrap; }
+        .th-tag.on { background: #e8f1fd; color: #1d4ed8; }
+        .th-ship-vals { display: flex; gap: 10px; margin-top: 10px; }
+        .th-ship-vals > label { flex: 1 1 0; min-width: 0; font-size: 12px; color: #64748b; margin: 0; }
+        .th-ship-vals .th-num { display: flex; align-items: stretch; margin-top: 4px;
+            border: 1px solid #dee6ef; border-radius: 8px; overflow: hidden; background: #fff; }
+        .th-ship-vals .th-num input { flex: 1 1 auto; min-width: 0; border: 0; outline: none;
+            font-size: 16px; font-weight: 700; text-align: center; padding: 8px 4px; color: #1f2a37; background: transparent; }
+        .th-ship-vals .th-num i { flex: 0 0 auto; font-style: normal; font-size: 12px; color: #94a3b8;
+            display: flex; align-items: center; padding: 0 8px; background: #f8fafc; border-left: 1px solid #eef1f5; }
+        .th-sec-hd { font-weight: 700; font-size: 14px; color: #1f2a37; margin: 16px 0 10px; }
+        .th-sec-hd small { font-weight: 400; color: #94a3b8; font-size: 12px; }
+        html[data-theme="dark"] .th-sec-hd { color: #cfe1f5; }
+        .th-now { display: flex; align-items: center; gap: 8px; border-radius: 10px;
+            padding: 9px 12px; font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
+        .th-now b { font-weight: 700; }
+        .th-now.ok   { background: #f0faf3; color: #1e7e34; }
+        .th-now.warn { background: #fff8ec; color: #b45309; }
+        .th-now.bad  { background: #fdf1f0; color: #c0392b; }
+        html[data-theme="dark"] .th-tip  { background: var(--sy-surface-2); border-color: var(--sy-border); color: var(--sy-muted); }
+        html[data-theme="dark"] .th-ship { background: var(--sy-surface); border-color: var(--sy-border); }
+        html[data-theme="dark"] .th-ship-hd .nm { color: var(--sy-text); }
+        html[data-theme="dark"] .th-tag  { background: var(--sy-surface-3); color: var(--sy-muted); }
+        html[data-theme="dark"] .th-tag.on { background: var(--sy-accent-soft); color: var(--sy-accent-2); }
+        html[data-theme="dark"] .th-ship-vals .th-num { border-color: var(--sy-border); background: var(--sy-surface-2); }
+        html[data-theme="dark"] .th-ship-vals .th-num input { color: var(--sy-text); }
+        html[data-theme="dark"] .th-ship-vals .th-num i { background: var(--sy-surface-3); color: var(--sy-muted); border-left-color: var(--sy-border); }
+        html[data-theme="dark"] .th-now.ok   { background: rgba(34,197,94,.12);  color: var(--sy-success); }
+        html[data-theme="dark"] .th-now.warn { background: rgba(245,158,11,.12); color: var(--sy-warning); }
+        html[data-theme="dark"] .th-now.bad  { background: rgba(239,68,68,.12);  color: var(--sy-danger); }
+        /* V1.59c：手机端标题居中一行，返回按钮第二行右对齐 */
+        @media (max-width: 575.98px){
+            .pg-top { display: block !important; }
+            .pg-top .pg-title { text-align: center; margin-bottom: 8px !important; }
+            .pg-top .pg-ctrl { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
+        }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+</head>
+<body class="py-4">
+<div class="container" style="max-width: 620px;">
+    <div class="d-flex justify-content-between align-items-center mb-3 pg-top">
+        <h5 class="fw-bold mb-0 pg-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg> 超时提醒时间配置</h5>
+        <div class="pg-ctrl"><a href="{{ back_url or '/boards' }}" class="btn btn-outline-secondary btn-sm">← 返回{{ '安全隐患看板' if IS_SAFETY else '看板列表' }}</a></div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            {# V1.5.3：提交地址必须分业务档——写死 /admin/thresholds 会在安全页把配置存到调试那一份 #}
+            {# V1.21：产品船单独设置一并收进本表单（原来在表单外，提交时根本带不上——存量 bug 顺手修复） #}
+            <form id="thForm" method="POST" action="{{ '/safety/thresholds' if IS_SAFETY else '/admin/thresholds' }}">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold">一级超时阈值 <span class="text-muted small">（L1）</span></label>
+                        <div class="input-group">
+                            <input type="number" class="form-control num-input" name="l1" id="l1"
+                                   value="{{ l1 }}" min="1" max="720" required>
+                            <span class="input-group-text unit-suffix">小时</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold">二级超时阈值 <span class="text-muted small">（L2）</span></label>
+                        <div class="input-group">
+                            <input type="number" class="form-control num-input" name="l2" id="l2"
+                                   value="{{ l2 }}" min="1" max="1440" required>
+                            <span class="input-group-text unit-suffix">小时</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="th-sec-hd">产品船单独设置</div>
+                {% if ship_rows %}
+                {% for s in ship_rows %}
+                <div class="th-ship" data-name="{{ s.name }}">
+                    <div class="th-ship-hd">
+                        <div>
+                            <div class="nm">{{ s.name }}</div>
+                            {% if s.ship_no %}<div class="no">船号 {{ s.ship_no }}</div>{% endif %}
+                        </div>
+                        <span class="th-tag {{ 'on' if s.custom else '' }}">{{ '单独配置' if s.custom else '跟随全局' }}</span>
+                    </div>
+                    <div class="th-ship-vals">
+                        <label>一级 L1
+                            <span class="th-num">
+                                <input type="number" class="ship-th" min="1" max="720"
+                                       name="ship_l1_{{ s.id }}" value="{{ s.l1 if s.custom else '' }}"
+                                       placeholder="{{ l1 }}">
+                                <i>小时</i>
+                            </span>
+                        </label>
+                        <label>二级 L2
+                            <span class="th-num">
+                                <input type="number" class="ship-th" min="1" max="1440"
+                                       name="ship_l2_{{ s.id }}" value="{{ s.l2 if s.custom else '' }}"
+                                       placeholder="{{ l2 }}">
+                                <i>小时</i>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="text-muted small">
+                    {% if IS_SAFETY %}
+                    还没有安全隐患看板，先到<a href="/safety">安全隐患看板列表</a>新建一条再回来配置。
+                    {% else %}
+                    还没有产品船看板，先到<a href="/boards">看板列表</a>新建一条再回来配置。
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <button type="button" class="btn btn-primary btn-block-mobile w-100 mt-2" onclick="submitTh()">保存配置</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="fw-bold mb-2" style="font-size:14px;">三级提醒</div>
+            <div class="th-now ok">🟢 <span>正常：未闭环 <b>{{ l1 }}</b> 小时以内（无升级提醒）</span></div>
+            <div class="th-now warn">🟡 <span>超时：未闭环 <b>{{ l1 }} ~ {{ l2 }}</b> 小时（L1 升级提醒）</span></div>
+            <div class="th-now bad">🔴 <span>极度超时：未闭环超过 <b>{{ l2 }}</b> 小时（L2 升级提醒）</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- 自定义确认弹层：不依赖原生 confirm（微信/船海智云 WebView 会静默拦截 confirm 并返回 false → 表单提交被阻断，表现为"保存没反应 / 阈值改不了"） -->
+<div id="uiConfirmBox" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;max-width:340px;width:100%;padding:20px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);">
+        <div id="uiConfirmMsg" style="font-size:15px;line-height:1.6;color:#212529;white-space:pre-wrap;word-break:break-all;"></div>
+        <div style="display:flex;gap:10px;margin-top:18px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="_uiConfirmAnswer(false)">取消</button>
+            <button type="button" class="btn btn-primary btn-sm flex-fill" onclick="_uiConfirmAnswer(true)">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let _uiConfirmResolve = null;
+    function uiConfirm(msg) {
+        return new Promise(resolve => {
+            document.getElementById('uiConfirmMsg').textContent = msg;
+            document.getElementById('uiConfirmBox').style.display = 'flex';
+            _uiConfirmResolve = resolve;
+        });
+    }
+    function _uiConfirmAnswer(ok) {
+        const box = document.getElementById('uiConfirmBox');
+        if (box) box.style.display = 'none';
+        if (_uiConfirmResolve) { const r = _uiConfirmResolve; _uiConfirmResolve = null; r(ok); }
+    }
+    // V1.5.7：提示优先用全局 Toast —— 微信/船海智云 WebView 会静默拦截原生 alert，
+    // 之前校验失败时用户只看到"点了没反应"，误以为"设置了不生效"。
+    function _thTip(m) {
+        if (window.showToast) { showToast(m, 'warn'); } else { alert(m); }
+    }
+    async function submitTh() {
+        const l1 = parseInt(document.getElementById('l1').value, 10);
+        const l2 = parseInt(document.getElementById('l2').value, 10);
+        if (!l1 || l1 < 1 || l1 > 720) { _thTip('一级超时阈值须为 1~720 小时'); return; }
+        if (!l2 || l2 <= l1 || l2 > 1440) { _thTip('二级超时阈值须大于一级阈值且不超过 1440 小时'); return; }
+        // V1.5.3：逐条校验产品船的单独阈值（留空=跟随全局）
+        let custom = 0;
+        const inputs = document.querySelectorAll('.ship-th');
+        for (const el of inputs) {
+            if (!el.value) continue;
+            const v = parseInt(el.value, 10);
+            if (!v || v < 1) { _thTip('产品船阈值为空或不是有效数字（留空表示跟随全局）'); el.focus(); return; }
+        }
+        // V1.21：改按 .th-ship 卡片逐条校验（原来是 tbody tr，表格改列表卡后同步调整）
+        const cards = document.querySelectorAll('.th-ship');
+        for (const card of cards) {
+            const a = card.querySelector('input[name^="ship_l1_"]');
+            const b = card.querySelector('input[name^="ship_l2_"]');
+            if (!a || !b) continue;
+            const v1 = a.value ? parseInt(a.value, 10) : 0;
+            const v2 = b.value ? parseInt(b.value, 10) : 0;
+            if (v1 || v2) custom++;
+            const eff1 = v1 || l1;
+            if (v2 && v2 <= eff1) {
+                _thTip('产品船「' + (card.getAttribute('data-name') || '') + '」：二级阈值须大于一级阈值（一级留空时为全局 ' + l1 + ' 小时）');
+                b.focus();
+                return;
+            }
+        }
+        let msg = '确认保存？全局阈值 L1=' + l1 + ' 小时、L2=' + l2 + ' 小时。';
+        if (custom > 0) msg += '\n另有 ' + custom + ' 条产品船使用单独阈值。';
+        msg += '\n（本页所有产品船的单独设置会一并保存）';
+        const ok = await uiConfirm(msg);
+        if (!ok) return;
+        try { sessionStorage.setItem('sy_th_saved', '1'); } catch (e) {}
+        document.getElementById('thForm').submit();
+    }
+
+    // V1.5.7：保存跳回本页后给一个明确反馈，避免"看不出到底存没存上"
+    (function () {
+        try {
+            if (sessionStorage.getItem('sy_th_saved')) {
+                sessionStorage.removeItem('sy_th_saved');
+                if (window.showToast) { showToast('配置已保存', 'ok'); }
+            }
+        } catch (e) {}
+    })();
+
+    // V1.21：状态标签随输入联动 —— 填了任意一侧 → 「单独配置」，清空 → 「跟随全局」
+    (function () {
+        document.querySelectorAll('.th-ship').forEach(function (card) {
+            const a = card.querySelector('input[name^="ship_l1_"]');
+            const b = card.querySelector('input[name^="ship_l2_"]');
+            const tag = card.querySelector('.th-tag');
+            if (!a || !b || !tag) return;
+            function sync() {
+                const on = !!(a.value || b.value);
+                tag.classList.toggle('on', on);
+                tag.textContent = on ? '单独配置' : '跟随全局';
+            }
+            a.addEventListener('input', sync);
+            b.addEventListener('input', sync);
+        });
+    })();
+</script>
+</body>
+</html>

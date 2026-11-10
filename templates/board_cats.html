@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>看板类别维护</title>
+<link rel="stylesheet" href="/static/css/tokens.css">
+<script>try{var _t=localStorage.getItem('shipyard_theme');if(_t)document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
+<link rel="stylesheet" href="/static/bootstrap.min.css">
+<style>
+  body { background:#f5f6f8; color:#212529; padding:14px; max-width:900px; margin:0 auto; }
+  .card { background:#fff; border:1px solid #e3e6ec; border-radius:10px; padding:14px; margin-bottom:12px; }
+  h1 { font-size:19px; margin:0 0 4px; font-weight:700; }
+  .sub { color:#6b7488; font-size:12px; margin-bottom:12px; }
+  .hint { background:#eef4ff; border:1px solid #cfe0ff; border-radius:8px; padding:10px 12px; font-size:13px; line-height:1.7; margin-bottom:12px; }
+  .hint b { color:#1b4f9c; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:8px 6px; border-bottom:1px solid #eceef2; vertical-align:middle; }
+  th { color:#6b7488; font-weight:600; font-size:12px; text-align:left; }
+  input[type=text], select { width:100%; padding:6px 8px; border:1px solid #d6dbe4; border-radius:6px; background:#fff; color:#212529; font-size:13px; }
+  input[type=text]:disabled { background:#f0f1f4; color:#6b7488; }
+  .row-sub { color:#8a92a3; font-size:11px; margin-top:3px; }
+  .btn { font-size:13px; padding:7px 13px; }
+  .mini { font-size:12px; padding:4px 8px; border:1px solid #d6dbe4; background:#fff; color:#4a5262; border-radius:6px; cursor:pointer; }
+  .mini:disabled { opacity:.4; cursor:not-allowed; }
+  .mini.danger { color:#c0392b; border-color:#f0c6c0; }
+  #note { display:none; padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+  #note.ok { display:block; background:#e7f6ec; border:1px solid #b7e2c4; color:#1d6b36; }
+  #note.err { display:block; background:#fdeaea; border:1px solid #f2c2c2; color:#a52a2a; white-space:pre-wrap; }
+  @media (max-width:600px) {
+    body { padding:8px; }
+    th, td { padding:6px 3px; }
+    .ops { white-space:normal; }
+    .mini { font-size:11px; padding:3px 5px; }
+    input[type=text], select { font-size:12px; padding:5px 6px; }
+  }
+  /* V1.47：系统暗色自动规则改由 theme.js 统一接管，
+      避免「系统暗色 + 手动切亮」时仍显示暗底；暗色样式见下方 data-theme 规则。 */
+
+  html[data-theme="dark"] body { background:#171a20; color:#e8eaee; }
+  html[data-theme="dark"] .card { background:#20242c; border-color:#343a46; }
+  html[data-theme="dark"] .hint { background:#1c2a3d; border-color:#2d4a70; color:#dbe6f5; }
+  html[data-theme="dark"] .hint b { color:#9ec5ff; }
+  html[data-theme="dark"] .sub { color:#8a92a3; }
+  html[data-theme="dark"] input[type=text],
+  html[data-theme="dark"] select,
+  html[data-theme="dark"] .mini { background:#2a2f39; color:#e8eaee; border-color:#414855; }
+  html[data-theme="dark"] input[type=text]:disabled { background:#23272f; color:#8a92a3; }
+  html[data-theme="dark"] th,
+  html[data-theme="dark"] td { border-color:#343a46; }
+</style>
+<style>
+    /* V1.59c：手机端标题居中一行，返回按钮第二行右对齐 */
+    @media (max-width: 575.98px){
+        .pg-top { display: block !important; }
+        .pg-top .pg-title { text-align: center; margin-bottom: 8px !important; }
+        .pg-top .pg-ctrl { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 8px; }
+    }
+</style>
+<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/v16.css">
+<script src="/static/js/theme.js" defer></script>
+</head>
+<body>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2 pg-top">
+  <div class="pg-title">
+    <h1>看板类别维护</h1>
+    <div class="sub mb-0">安全业务 · 当前 {{ cats|length }} 类 · 最多 {{ max_cats }} 类</div>
+  </div>
+  <div class="pg-ctrl"><a class="btn btn-outline-secondary btn-sm" href="/safety">返回看板列表</a></div>
+</div>
+
+<div id="note"></div>
+
+<div class="hint">
+  <b>这里加的类别会立刻出现在新建看板的「看板类型」下拉和列表页的筛选按钮里，不用改代码。</b><br>
+  每个类别要选一种行为：<br>
+  · <b>产品船类</b>：必须填船号，列表显示船号，6S 评分与系统清单按它算。<br>
+  · <b>场地类</b>：不填船号，发起隐患时必选「场地位置」。<br>
+  · <b>设备类</b>：不填船号、不强制场地位置，与产品船 / 场地并列显示在安全看板列表里。<br>
+  「产品船」是内置类别，不能删、不能改行为。已经有看板的类别不能删，只能<b>停用</b>（停用后不再出现在新建下拉，老看板照常显示）。
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:26%">类别名</th>
+        <th style="width:28%">行为</th>
+        <th style="width:10%">启用</th>
+        <th style="width:36%">操作</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="mt-3 d-flex flex-wrap gap-2">
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addRow()">＋ 新增类别</button>
+    <button type="button" class="btn btn-primary btn-sm" onclick="saveAll()">保存并生效</button>
+  </div>
+</div>
+
+<div class="sub">操作人：{{ user_name or '—' }}　｜　保存后立即刷新各页面下拉，无需重启服务。</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+var CATS = {{ cats|tojson }};
+var BEHAVIORS = {{ behaviors|tojson }};
+var USED = {{ used_keys|tojson }};
+var MAX = {{ max_cats }};
+var BUILTIN = '产品船';
+var BEH_SHORT = {ship:'产品船类', place:'场地类', device:'设备类'};
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function isUsed(k) { return USED.indexOf(k) >= 0; }
+function note(msg, ok) {
+  var n = document.getElementById('note');
+  n.textContent = msg;
+  n.className = ok ? 'ok' : 'err';
+  n.scrollIntoView({block:'center'});
+}
+function render() {
+  var box = document.getElementById('rows');
+  var h = '';
+  CATS.forEach(function (c, i) {
+    var lock = c.key === BUILTIN;
+    var used = isUsed(c.key);
+    var opts = '';
+    Object.keys(BEHAVIORS).forEach(function (b) {
+      opts += '<option value="' + esc(b) + '" title="' + esc(BEHAVIORS[b]) + '"'
+        + (c.behavior === b ? ' selected' : '') + '>' + esc(BEH_SHORT[b] || BEHAVIORS[b]) + '</option>';
+    });
+    h += '<tr>'
+      + '<td><input type="text" class="cat-key" maxlength="12" value="' + esc(c.key) + '"' + (lock ? ' disabled' : '') + '>'
+      + (lock ? '<div class="row-sub">内置，不可改名</div>' : (used ? '<div class="row-sub">已有看板在用</div>' : '')) + '</td>'
+      + '<td><select class="cat-beh"' + (lock ? ' disabled' : '') + '>' + opts + '</select></td>'
+      + '<td><input type="checkbox" class="cat-en"' + (c.enabled ? ' checked' : '') + '></td>'
+      + '<td class="ops">'
+      + '<button type="button" class="mini" onclick="moveRow(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>上移</button> '
+      + '<button type="button" class="mini" onclick="moveRow(' + i + ',1)"' + (i === CATS.length - 1 ? ' disabled' : '') + '>下移</button> '
+      + '<button type="button" class="mini danger" onclick="delRow(' + i + ')"' + (lock || used ? ' disabled' : '')
+      + ' title="' + (lock ? '内置类别不能删' : (used ? '已有看板在用，请改用「停用」' : '')) + '">删除</button>'
+      + (used ? '<div class="row-sub">要下线请取消勾选「启用」</div>' : '')
+      + '</td></tr>';
+  });
+  box.innerHTML = h;
+}
+function collect() {
+  var trs = document.querySelectorAll('#rows tr');
+  var out = [];
+  for (var i = 0; i < trs.length; i++) {
+    var t = trs[i];
+    out.push({
+      key: t.querySelector('.cat-key').value.trim(),
+      behavior: t.querySelector('.cat-beh').value,
+      enabled: t.querySelector('.cat-en').checked,
+      builtin: (CATS[i] && CATS[i].builtin) || t.querySelector('.cat-key').value.trim() === BUILTIN
+    });
+  }
+  return out;
+}
+function addRow() {
+  if (CATS.length >= MAX) { note('最多 ' + MAX + ' 个类别，请先删掉几个再加。', false); return; }
+  CATS = collect();
+  CATS.push({key:'', behavior:'place', enabled:true, builtin:false});
+  render();
+  var ins = document.querySelectorAll('#rows .cat-key');
+  if (ins.length) ins[ins.length - 1].focus();
+}
+function delRow(i) {
+  CATS = collect();
+  var k = CATS[i] && CATS[i].key;
+  if (k === BUILTIN) { note('内置类别「产品船」不能删除。', false); return; }
+  if (isUsed(k)) { note('「' + k + '」下还有看板，不能删除；请取消勾选「启用」把它停用。', false); return; }
+  CATS.splice(i, 1);
+  render();
+}
+function moveRow(i, d) {
+  CATS = collect();
+  var j = i + d;
+  if (j < 0 || j >= CATS.length) return;
+  var t = CATS[i]; CATS[i] = CATS[j]; CATS[j] = t;
+  render();
+}
+async function saveAll() {
+  var rows = collect();
+  var btn = document.querySelector('button[onclick="saveAll()"]');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try {
+    var r = await fetch('/admin/board_cats/save', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({categories: rows})
+    });
+    var d = await r.json().catch(function () { return {ok:false, msg:'服务器返回异常(' + r.status + ')'}; });
+    if (d.ok) {
+      note('已保存：' + (d.msg || '') + '，正在刷新…', true);
+      setTimeout(function () { location.reload(); }, 800);
+      return;
+    }
+    note(d.msg || '保存失败', false);
+  } catch (e) {
+    note('保存失败：网络异常，请重试。', false);
+  }
+  btn.disabled = false; btn.textContent = '保存并生效';
+}
+render();
+</script>
+</body>
+</html>

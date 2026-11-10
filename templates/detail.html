@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>收尾详情 #{{ rid }} - 船舶完整性管理看板</title>
+    <link rel="stylesheet" href="/static/css/tokens.css">
+<link href="/static/bootstrap.min.css" rel="stylesheet">
+
+    <style>.modal{display:none}.modal.show{display:block}</style>
+    <style>
+        .photo-thumb { width: 100px; height: 100px; object-fit: cover; margin-right: 8px; margin-bottom: 8px; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; }
+        .preview-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .info-card { border-radius: 12px; }
+        .status-badge { font-size: 12.5px; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
+        .thumb-wrap { position: relative; display: inline-block; }
+        .thumb-wrap .del-btn { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; text-align: center; line-height: 18px; cursor: pointer; }
+        /* ===== 输入联想组件样式（与看板页一致） ===== */
+        .suggest-wrap { position: relative; }
+        .suggest-dropdown { position: absolute; top: 100%; left: 0; right: 0; z-index: 2000; background: #fff;
+            border: 1px solid #dee2e6; border-radius: 6px; max-height: 260px; overflow-y: auto; display: none;
+            box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+        .suggest-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f1f3f5; }
+        .suggest-item:last-child { border-bottom: none; }
+        .suggest-item:active, .suggest-item:hover { background: #e7f1ff; }
+        .suggest-label { font-weight: 600; font-size: 14px; color: #212529; }
+        .suggest-sub { font-size: 12px; color: #6c757d; margin-top: 2px; word-break: break-all; }
+        .suggest-empty { padding: 10px 12px; color: #adb5bd; font-size: 13px; }
+        /* ===== V1.4.4 标签式（芯片）选人样式 ===== */
+        .pick-chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .pick-chip-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+            background: #e7f1ff; color: #0d47a1; border: 1px solid #90caf9; border-radius: 999px;
+            padding: 3px 6px 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; min-height: 30px; }
+        .pick-chip-pill .pick-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pick-chip-x { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: #64b5f6;
+            color: #fff; font-size: 13px; line-height: 17px; text-align: center; cursor: pointer; font-weight: 700; }
+        .pick-chip-x:active { background: #e53935; }
+        /* 一级/二级/三级徽标 */
+        .lvl-tag { display: inline-block; border-radius: 4px; font-size: 12px; font-weight: 700;
+            color: #fff; padding: 1px 6px; margin-right: 4px; }
+        .lvl-tag.l1 { background: #2e7d32; }
+        .lvl-tag.l2 { background: #1e88e5; }
+        .lvl-tag.l3 { background: #d32f2f; }
+        @media (max-width: 767.98px) {
+            .container { padding: 10px; }
+            .photo-thumb { width: 80px; height: 80px; }
+            .status-badge { font-size: 11.5px; padding: 3px 10px; white-space: normal; line-height: 1.4; }
+            .info-card .card-header h5 { max-width: 100%; font-size: 17px; }
+            .info-card .card-header .status-badge { flex: 0 0 100%; max-width: 100%; }
+            .suggest-dropdown { max-height: 40vh; }
+        }
+        /* ===== V1.4.5 品牌：统一海工蓝（移植自样板页 boards.html，仅视觉，业务语义色不动） ===== */
+        :root {
+            --navy: #1d4ed8;            /* 主品牌（按钮/标题） */
+            --navy-deep: #1e3a8a;       /* 更深一档（按压） */
+            --blue: #2563eb;            /* 品牌亮蓝（强调/链接） */
+            --ink: #1e293b;             /* 主文字 */
+            --muted: #64748b;           /* 次级文字 */
+            --line: #e2e8f0;            /* 分隔线 */
+            --bg: #f5f7fa;              /* 页面底色 */
+            --card-radius: 12px;
+        }
+        body, body.bg-light { background: var(--bg) !important; color: var(--ink); }
+        /* 把 Bootstrap 主色统一到海工蓝，避免页面同时出现多种蓝色 */
+        .btn-primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .btn-primary:hover { background: var(--blue); border-color: var(--blue); color: #fff; }
+        .btn-outline-primary { color: var(--navy); border-color: var(--navy); }
+        .btn-outline-primary:hover { background: var(--navy); border-color: var(--navy); color: #fff; }
+        /* 模态框内统一主操作按钮（海工蓝实底） */
+        .btn-brand { background: var(--navy); color: #fff; border: none; border-radius: 8px;
+            font-weight: 600; box-shadow: 0 1px 3px rgba(29,78,216,.15); transition: all .15s ease; }
+        .btn-brand:hover { background: var(--blue); color: #fff; transform: translateY(-1px); }
+        .btn-brand:active { background: var(--navy-deep); color: #fff; }
+        /* 线性图标尺寸（stroke=currentColor 的 svg 用它） */
+        .ic { width: 16px; height: 16px; vertical-align: -3px; flex: 0 0 auto; }
+        .ic-lg { width: 18px; height: 18px; vertical-align: -4px; }
+        /* 模态框统一精修 */
+        .modal-content { border: none; border-radius: 14px; box-shadow: 0 10px 30px rgba(15,23,42,.14); overflow: hidden; }
+        .modal-header { border-bottom: 1px solid var(--line); }
+        .modal-header .modal-title { font-weight: 700; font-size: 1.05rem; }
+        .modal-header.brand-head { background: linear-gradient(135deg, var(--navy), var(--blue)); color: #fff; }
+        .modal-header.brand-head .modal-title { color: #fff; }
+        .modal-footer { border-top: 1px solid var(--line); }
+        .modal .btn { border-radius: 9px; }
+        .form-control, .form-select { border-radius: 8px; }
+        .badge-soft { display: inline-flex; align-items: center; gap: 5px; background: #eaf1f9; color: var(--blue);
+            border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-soft .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; }
+        /* 登录区用户名：品牌色 + 内联图标 */
+        .login-user { color: var(--navy); display: inline-flex; align-items: center; gap: 6px; }
+        /* 主信息卡头部 bg-primary 随品牌渐变（仅换底色，不动结构） */
+        .card-header.bg-primary { background: linear-gradient(135deg, var(--navy), var(--blue)) !important; }
+    </style>
+    <link href="/static/css/theme.css" rel="stylesheet">
+    <link href="/static/css/v16.css" rel="stylesheet">
+    <script src="/static/js/theme.js" defer></script>
+    <link href="/static/css/imageviewer.css" rel="stylesheet">
+    <script src="/static/js/imageviewer.js" defer></script>
+    <style>
+        /* ===== V1.16.5：派工流程逐项分行（每次派工一块，标签左对齐） ===== */
+        .dlg-item { padding: 8px 0; }
+        .dlg-item:first-child { padding-top: 2px; }
+        .dlg-item:last-child { padding-bottom: 2px; }
+        .dlg-line { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; line-height: 1.95; }
+        .dlg-no {
+            flex: 0 0 auto; min-width: 18px; text-align: center;
+            background: #f59e0b; color: #212529; border-radius: 6px;
+            font-size: 11.5px; font-weight: 700; padding: 1px 5px;
+        }
+        .dlg-k { flex: 0 0 52px; color: #8a6d3b; font-size: 11.5px; font-weight: 700; letter-spacing: .5px; }
+        .dlg-item > .dlg-line:not(:first-child) { padding-left: 24px; }
+        /* ===== V1.20 视觉重构：标题栏 / 软状态徽章 / 审批时间线 / 卡头去大色块 ===== */
+        .dt-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+            position: relative; min-height: 36px; }
+        .dt-head .dt-back { grid-column: 1; justify-self: start; display: inline-flex; align-items: center; gap: 5px;
+            padding: 6px 14px 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff;
+            color: var(--navy); text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(15,23,42,.05); transition: all .15s ease; position: relative; z-index: 1; }
+        .dt-head .dt-back:hover { border-color: var(--blue); background: #eaf1ff; color: var(--navy-deep); transform: translateX(-2px); }
+        /* V1.25：标题相对整行绝对居中。原手机端用 flex:1 + text-align:center，
+           只在「减去左侧返回键后的剩余宽度」里居中，导致整体明显偏右。 */
+        .dt-head .dt-title { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            font-size: 17px; font-weight: 700; color: var(--ink); white-space: nowrap; pointer-events: none; }
+        .dt-head .dt-side { grid-column: 3; }
+        @media (max-width: 767.98px) {
+            .dt-head { display: flex; }
+            .dt-head .dt-back { flex: 0 0 auto; }
+            .dt-head .dt-title { font-size: 16px; }
+            .dt-head .dt-side { display: none; }
+        }
+        /* 软状态徽章：浅色底 + 深色字（避免大面积高饱和色） */
+        .st-soft { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+            padding: 2px 9px; font-size: 12px; font-weight: 600; line-height: 1.5; }
+        .st-soft.red { background: #fdecea; color: #b91c1c; }
+        .st-soft.amber { background: #fef3c7; color: #92400e; }
+        .st-soft.blue { background: #e0edff; color: #1d4ed8; }
+        .st-soft.sky { background: #e0f2fe; color: #0369a1; }
+        .st-soft.green { background: #dcfce7; color: #15803d; }
+        .st-soft.gray { background: #f1f5f9; color: #475569; }
+        /* 大色块卡头 → 软色底（HTML 类名不动，只换皮） */
+        .card-header.bg-primary { background: #eef4ff !important; border-bottom: 1px solid var(--line); }
+        .card-header.bg-primary, .card-header.bg-primary h5,
+        .card-header.bg-primary .text-white { color: var(--navy) !important; }
+        .card-header.bg-success { background: #ecfdf3 !important; border-bottom: 1px solid var(--line); }
+        .card-header.bg-success, .card-header.bg-success h5,
+        .card-header.bg-success .text-white, .card-header.bg-success .small { color: #15803d !important; }
+        .card-header.bg-danger { background: #fdecea !important; border-bottom: 1px solid var(--line); }
+        .card-header.bg-danger, .card-header.bg-danger h5,
+        .card-header.bg-danger .text-white { color: #b91c1c !important; }
+        /* 审批留痕时间线 */
+        .tl { position: relative; margin: 6px 0 0; padding-left: 14px; }
+        .tl::before { content: ''; position: absolute; left: 3px; top: 5px; bottom: 5px; width: 2px;
+            background: var(--line); border-radius: 2px; }
+        .tl-item { position: relative; padding: 2px 0 2px 4px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+        .tl-item::before { content: ''; position: absolute; left: -14px; top: 9px; width: 8px; height: 8px;
+            border-radius: 50%; background: #94a3b8; }
+        .tl-item.ok::before { background: #16a34a; }
+        .tl-item.no::before { background: #ef4444; }
+        /* 状态徽章软色化：浅底深字，避免大面积高饱和色块 */
+        .status-badge.bg-success { background: #dcfce7 !important; color: #15803d !important; }
+        .status-badge.bg-danger { background: #fdecea !important; color: #b91c1c !important; }
+        .status-badge.bg-info { background: #e0f2fe !important; color: #0369a1 !important; }
+        .status-badge.bg-warning { background: #fef3c7 !important; color: #92400e !important; }
+        /* ===== V1.24：详情页暗色模式补齐——消灭残余亮块 ===== */
+        html[data-theme="dark"] .dt-head .dt-back { background: var(--sy-surface); border-color: var(--sy-border); color: var(--sy-text); }
+        html[data-theme="dark"] .dt-head .dt-back:hover { background: var(--sy-surface-2); border-color: var(--sy-accent); color: var(--sy-accent); }
+        html[data-theme="dark"] .dt-head .dt-title { color: var(--sy-text); }
+        /* 各卡头：暗色下浅色软底 → 深色底（含 190 行审批卡头的内联浅灰） */
+        html[data-theme="dark"] .card-header { background: var(--sy-surface-2) !important; border-bottom-color: var(--sy-border) !important; color: var(--sy-text) !important; }
+        html[data-theme="dark"] .card-header.bg-primary,
+        html[data-theme="dark"] .card-header.bg-success,
+        html[data-theme="dark"] .card-header.bg-danger { background: var(--sy-surface-2) !important; }
+        /* 绿/红卡头文字在深底上换亮色（原 #15803d / #b91c1c 深色看不清） */
+        html[data-theme="dark"] .card-header.bg-success,
+        html[data-theme="dark"] .card-header.bg-success h5,
+        html[data-theme="dark"] .card-header.bg-success .text-white,
+        html[data-theme="dark"] .card-header.bg-success .small { color: #86efac !important; }
+        html[data-theme="dark"] .card-header.bg-danger,
+        html[data-theme="dark"] .card-header.bg-danger h5,
+        html[data-theme="dark"] .card-header.bg-danger .text-white { color: #fca5a5 !important; }
+        /* 软状态徽章：暗色下换半透明深底 + 亮字，保留语义色 */
+        html[data-theme="dark"] .st-soft.red { background: rgba(248,113,113,.16); color: #fca5a5; }
+        html[data-theme="dark"] .st-soft.amber { background: rgba(251,191,36,.16); color: #fcd34d; }
+        html[data-theme="dark"] .st-soft.blue { background: rgba(125,211,252,.16); color: #7dd3fc; }
+        html[data-theme="dark"] .st-soft.sky { background: rgba(125,211,252,.16); color: #7dd3fc; }
+        html[data-theme="dark"] .st-soft.green { background: rgba(74,222,128,.16); color: #86efac; }
+        html[data-theme="dark"] .st-soft.gray { background: var(--sy-surface-3); color: var(--sy-text); }
+        /* V1.25：状态徽章（.status-badge / .badge）的浅色软底在暗色下会变成一条白块，统一换半透明深底 + 亮字 */
+        html[data-theme="dark"] .status-badge.bg-success { background: rgba(74,222,128,.16) !important; color: #86efac !important; }
+        html[data-theme="dark"] .status-badge.bg-danger  { background: rgba(248,113,113,.16) !important; color: #fca5a5 !important; }
+        html[data-theme="dark"] .status-badge.bg-info    { background: rgba(125,211,252,.16) !important; color: #7dd3fc !important; }
+        html[data-theme="dark"] .status-badge.bg-warning { background: rgba(251,191,36,.16) !important; color: #fcd34d !important; }
+        html[data-theme="dark"] .badge.bg-warning        { background: rgba(251,191,36,.16) !important; color: #fcd34d !important; }
+        html[data-theme="dark"] .badge.bg-info           { background: rgba(125,211,252,.16) !important; color: #7dd3fc !important; }
+        /* ===== 审批面板（照现场设计稿）：灰描边实底 / 描边药丸 / 标签与输入框横排 / 双灰按钮 =====
+           本页 <body> 不带 v16 class，v16.css 里 body.v16 前缀的表单规则不生效，
+           所以这块全部用自有 ap- 类，颜色只取 --v16-* 令牌，亮暗各一套。 */
+        .ap-box { background: var(--v16-card); border: 1px solid var(--v16-line);
+            border-radius: 10px; padding: 12px; margin: 0; }
+        .ap-tit { font-size: 13.5px; color: var(--v16-txt); line-height: 1.55; margin: 0 0 8px; }
+        .ap-lb  { font-size: 12.5px; color: var(--v16-sub); display: block; margin: 10px 0 6px; }
+        .ap-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+        .ap-chip { display: inline-block; padding: 6px 16px; font-size: 12.5px;
+            border: 1px solid var(--v16-line); border-radius: 999px;
+            background: transparent; color: var(--v16-txt); cursor: pointer; line-height: 1.4; }
+        .ap-chip.on { background: var(--v16-graybg); border-color: var(--v16-accent);
+            color: var(--v16-txt); font-weight: 700; }
+        .ap-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .ap-row .ap-lb { flex: 0 0 96px; margin: 0; white-space: nowrap; }
+        .ap-inp { flex: 1 1 auto; min-width: 0; height: 38px; padding: 7px 10px;
+            font-size: 13.5px; font-family: inherit; color: var(--v16-txt);
+            background: var(--v16-card); border: 1px solid var(--v16-line);
+            border-radius: 8px; outline: none; -webkit-appearance: none; }
+        .ap-inp::placeholder { color: var(--v16-sub); opacity: .9; }
+        .ap-inp:focus { border-color: var(--v16-accent); }
+        .ap-btns { display: flex; gap: 10px; margin-top: 14px; }
+        .ap-btn { flex: 1; height: 42px; font-size: 14px; font-weight: 600; font-family: inherit;
+            border: 1px solid var(--v16-line); border-radius: 8px;
+            background: var(--v16-graybg); color: var(--v16-txt); cursor: pointer; }
+        .ap-btn.go { background: var(--v16-line); }
+        .ap-note { font-size: 11.5px; color: var(--v16-sub); line-height: 1.7; margin-top: 10px; }
+        html[data-theme="dark"] .ap-inp { background: var(--v16-bg); }
+        html[data-theme="dark"] .ap-inp:-webkit-autofill { -webkit-text-fill-color: var(--v16-txt);
+            -webkit-box-shadow: 0 0 0 1000px var(--v16-bg) inset; }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+    <div class="dt-head mb-3">
+        {% if rec %}
+        <a class="dt-back" href="/board/{{ rec.ship_id or 1 }}">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            返回看板
+        </a>
+        {% else %}
+        <a class="dt-back" href="/boards">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+            返回看板
+        </a>
+        {% endif %}
+        <span class="dt-title">记录详情 <span class="st-soft gray" style="margin-left:4px">#{{ rid }}</span></span>
+        <span class="dt-side"></span>
+    </div>
+
+    {% if not rec %}
+    <div class="alert alert-warning text-center">
+        <h4>记录不存在</h4>
+        <p>该收尾记录可能已被删除，请<a href="/boards">返回看板列表</a>查看。</p>
+    </div>
+    {% else %}
+
+    {% set _rt = rec.rec_type or '隐患整改' %}
+    {% set _as = rec.approval_status or '' %}
+    <div class="card shadow-sm mb-4" id="apprCard">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"
+             style="background:#f1f5f9;border-bottom:1px solid #e2e8f0;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="st-soft {{ 'red' if _rt == '违章处罚' else ('amber' if _rt == '5S' else 'blue') }}">{{ _rt }}</span>
+                {% if _as %}
+                <span class="st-soft {{ 'green' if _as == '已通过' else ('red' if _as == '已驳回' else 'sky') }}">{{ _as }}</span>
+                {% endif %}
+            </div>
+            {% if _as == '已通过' and (rec.handle_way or rec.fine_amount) %}
+            <div class="small" style="color:var(--muted)">
+                处理方式：<b style="color:var(--ink)">{{ rec.handle_way or '—' }}</b>
+                {% if rec.fine_amount %}<span class="st-soft red ms-1">罚款 ¥{{ rec.fine_amount }}</span>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            {% if approvers_list %}
+            <div class="v16-spread" style="margin-bottom:5px">
+                <span class="v16-xs v16-muted">审批人（<b>任一人通过即生效</b>）</span>
+                <span class="st-soft amber">待审批 {{ approvers_list|length }} 人</span>
+            </div>
+            <div class="v16-chips" style="margin-bottom:10px">
+                {% for a in approvers_list %}
+                <span class="v16-chip {{ 'on' if a.name and a.name == rec.approved_by else '' }}">{{ a.name or a.phone }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if _as == '审批中' and can_approve %}
+            <div class="ap-box">
+                <div class="ap-tit">你是指定的审批人，请处理这条违章处罚</div>
+                <label class="ap-lb">处理方式</label>
+                <div class="ap-chips" id="wayChips">
+                    <span class="ap-chip on" data-w="处罚" onclick="onWay('处罚', this)">处罚</span>
+                    <span class="ap-chip" data-w="教育" onclick="onWay('教育', this)">教育</span>
+                </div>
+                <div class="ap-row" id="fineBox">
+                    <label class="ap-lb">罚款金额（元）</label>
+                    <input type="text" class="ap-inp" id="fineAmount" value="{{ rec.fine_amount or '' }}" placeholder="例如：200" autocomplete="off">
+                </div>
+                <div class="ap-row">
+                    <label class="ap-lb">备注（可空）</label>
+                    <input type="text" class="ap-inp" id="apprNote" maxlength="200" placeholder="备注（可空）" autocomplete="off">
+                </div>
+                <div class="ap-btns">
+                    <button type="button" class="ap-btn" onclick="doApprove(0)">驳回</button>
+                    <button type="button" class="ap-btn go" onclick="doApprove(1)">同意</button>
+                </div>
+                <div class="ap-note">
+                    当前操作人：<b>{{ user_name or '（免登录）管理员' }}</b><br>
+                    同意后其余审批人自动视为「无需审批」，无需再处理。
+                </div>
+            </div>
+            {% elif _as == '审批中' %}
+            <div class="v16-sm v16-muted">等待审批人处理中（审批人 {{ approvers_list|length }} 人，<b>任一人通过即生效</b>）。</div>
+            {% elif not _as %}
+            <div class="v16-sm v16-muted">这类记录不需要审批，发起后直接进入整改跟踪。</div>
+            {% endif %}
+
+            {% if approve_logs %}
+            <div style="margin-top:12px">
+                <div class="v16-tit" style="font-size:12.5px;margin-bottom:4px">审批留痕</div>
+                <div class="tl">
+                {% for g in approve_logs %}
+                <div class="tl-item {{ 'ok' if g.action == 'approve' else 'no' }}">{{ g.created_at }}　{{ g.actor_name or g.actor_phone }}　{{ '通过' if g.action == 'approve' else '驳回' }}{% if g.handle_way %} · {{ g.handle_way }}{% endif %}{% if g.fine_amount %} · 罚款 ¥{{ g.fine_amount }}{% endif %}{% if g.note %} · {{ g.note }}{% endif %}</div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // V1.70：默认选中「处罚」，罚款金额框随之展开；切到「教育」由 onWay 收起。
+        var _WAY = '处罚';
+        function onWay(w, el) {
+            _WAY = w;
+            var box = document.getElementById('wayChips');
+            if (box) {
+                Array.prototype.forEach.call(box.querySelectorAll('.ap-chip'), function (x) {
+                    x.classList.remove('on');
+                });
+            }
+            if (el) el.classList.add('on');
+            var b = document.getElementById('fineBox');
+            if (b) b.style.display = (w === '处罚') ? 'flex' : 'none';
+        }
+        async function doApprove(ok) {
+            var way = _WAY;
+            var fine = (document.getElementById('fineAmount') || {}).value || '';
+            var note = (document.getElementById('apprNote') || {}).value || '';
+            if (ok && way === '处罚' && !fine.trim()) {
+                if (window.showToast) showToast('选择「处罚」时必须填写罚款金额'); else alert('选择「处罚」时必须填写罚款金额');
+                return;
+            }
+            try {
+                var r = await fetch('/api/approve', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({rid: {{ rid }}, action: ok ? 'approve' : 'reject',
+                                          handle_way: way, fine_amount: fine, note: note})
+                });
+                var d = await r.json();
+                if (window.showToast) showToast(d.msg || (d.ok ? '已处理' : '处理失败'));
+                else alert(d.msg || (d.ok ? '已处理' : '处理失败'));
+                if (d.ok) setTimeout(function () { location.reload(); }, 700);
+            } catch (e) {
+                if (window.showToast) showToast('网络异常，请重试'); else alert('网络异常，请重试');
+            }
+        }
+    </script>
+
+    <div class="card shadow-sm info-card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0">{{ rec.sys_name }}</h5>
+            {% if IS_SAFETY %}
+
+            {% if rec.display_status == '已整改' %}
+                <span class="badge bg-success status-badge">已整改</span>
+            {% elif rec.display_status == '超时' %}
+                <span class="badge bg-danger status-badge">超时</span>
+            {% else %}
+                <span class="badge bg-info text-dark status-badge">未超时</span>
+            {% endif %}
+            {% elif rec.display_status == '已闭环' %}
+                <span class="badge bg-success status-badge">已闭环</span>
+            {% elif rec.display_status == '未闭环（小于' ~ l1 ~ '小时）' %}
+                <span class="badge bg-info text-dark status-badge">未闭环（小于{{ l1 }}小时）</span>
+            {% elif rec.display_status == '未闭环（' ~ l1 ~ '-' ~ l2 ~ '小时）' %}
+                <span class="badge bg-warning text-dark status-badge">未闭环（{{ l1 }}-{{ l2 }}小时）</span>
+            {% else %}
+                <span class="badge bg-danger status-badge">{{ rec.display_status }}</span>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label text-muted small fw-bold">问题描述</label>
+                    <p class="form-control bg-light" style="min-height: 60px;">{{ rec.description }}</p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">发起时间</label>
+                    <p class="form-control bg-light">{{ rec.submit_time }}</p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">闭环时间</label>
+                    <p class="form-control bg-light">{{ rec.close_time or '—' }}</p>
+                </div>
+            </div>
+            {% if rec.place_name %}
+            <div class="row g-3 mt-1">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">场地位置</label>
+                    <p class="form-control bg-light">{{ rec.place_name }}</p>
+                </div>
+            </div>
+            {% endif %}
+            <div class="row g-3 mt-1">
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold"><span class="lvl-tag l1">一级</span>相关责任人（责任单位负责人/主管）</label>
+                    <p class="form-control bg-light">{{ rec.install_user_name or '—' }}</p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold"><span class="lvl-tag l2">二级</span>责任单位领导（作业长/室主任）</label>
+                    <p class="form-control bg-light mb-1">{{ rec.area_leader_name or '—' }}</p>
+                    {% if rec.area_leader_areas %}<div class="small text-muted">作业区：{{ rec.area_leader_areas }}</div>{% endif %}
+                </div>
+
+                {% if not IS_SAFETY %}
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold"><span class="lvl-tag l3">三级</span>部门长</label>
+                    <p class="form-control bg-light">{{ rec.dept_leader_name or '—' }}</p>
+                </div>
+                {% endif %}
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">调试责任人</label>
+                    <p class="form-control bg-light">{{ rec.debug_user_name or '—' }}</p>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted small fw-bold">调试上级责任人</label>
+                    <p class="form-control bg-light">{{ rec.debug_sup_name or '—' }}</p>
+                </div>
+                {% if rec.extra_users_list %}
+                <div class="col-md-12">
+                    <label class="form-label small fw-bold text-warning"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.4"/><path d="M2.8 20.2c1.4-3 3.7-4.4 6.2-4.4s4.8 1.4 6.2 4.4"/><path d="M15.6 4.9a3.4 3.4 0 0 1 0 6.2M17.6 15.9c2 .8 3.3 2.2 3.9 4.1"/></svg> 追加抄送人（所有推送通知一并抄送）</label>
+                    <div class="form-control bg-light border-warning" style="padding: .75rem;">
+                        {% for u in rec.extra_users_list %}
+                        <span class="badge bg-warning text-dark me-2 mb-1" style="font-size: .9rem;">
+                            {{ u.name or '抄送人' }}{% if u.phone %}（{{ u.phone }}）{% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if rec.extra_responsible_list %}
+                <div class="col-md-12">
+                    <label class="form-label small fw-bold text-primary"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> 追加责任人（发出后补充添加，从船海智云通讯录选人，推送同步通知）</label>
+                    <div class="form-control bg-light border-primary" style="padding: .75rem;">
+                        {% for u in rec.extra_responsible_list %}
+                        <span class="badge bg-primary text-white me-2 mb-1" style="font-size: .9rem;">
+                            {{ u.name or '责任人' }}{% if u.phone %}（{{ u.phone }}）{% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if dispatch_logs %}
+                <div class="col-md-12">
+                    <label class="form-label small fw-bold text-warning"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 11 13M21.5 2.5l-7 19-3.5-8.5L2.5 9.5l19-7z"/></svg> 派工流程（完整派工链，共 {{ dispatch_logs|length }} 次派工）</label>
+                    <div class="form-control bg-light border-warning dlg-wrap" style="padding: .75rem;">
+                        {% for log in dispatch_logs %}
+
+                        <div class="dlg-item{% if not loop.last %} border-bottom{% endif %}">
+                            <div class="dlg-line">
+                                <span class="dlg-no">{{ loop.index }}</span>
+                                <span class="dlg-k">派工人</span>
+                                <span class="fw-bold">{{ log.from_user or '责任人' }}</span>
+                            </div>
+                            <div class="dlg-line">
+                                <span class="dlg-k">派 给</span>
+                                <span class="fw-bold text-primary">{{ log.to_user or '—' }}</span>
+                            </div>
+                            {% if log.created_at %}
+                            <div class="dlg-line">
+                                <span class="dlg-k">时 间</span>
+                                <span class="text-muted small">{{ log.created_at }}</span>
+                            </div>
+                            {% endif %}
+                            {% if log.note %}
+                            <div class="dlg-line">
+                                <span class="dlg-k">备 注</span>
+                                <span class="small text-secondary">{{ log.note }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% elif rec.dispatch_user %}
+                <div class="col-md-12">
+                    <label class="form-label small fw-bold text-warning"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 11 13M21.5 2.5l-7 19-3.5-8.5L2.5 9.5l19-7z"/></svg> 派工信息</label>
+                    <div class="form-control bg-light border-warning">
+                        <div>已派工给：<span class="fw-bold">{{ rec.dispatch_user_name }}</span>
+                            {% if rec.dispatch_time %}<span class="text-muted small">（{{ rec.dispatch_time }}）</span>{% endif %}
+                        </div>
+                        {% if rec.dispatch_by %}<div class="small text-muted">派工人：{{ rec.dispatch_by }}</div>{% endif %}
+                        {% if rec.dispatch_note %}<div class="small mt-1">备注：{{ rec.dispatch_note }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm info-card mb-4">
+        <div class="card-header bg-light">
+            <span class="text-primary fw-bold">异常手尾照片</span>
+        </div>
+        <div class="card-body">
+            {% if rec.photo_path %}
+            <div class="preview-container">
+                {% for p in rec.photo_path.split(',') %}
+                    {% if p.strip() %}
+                    <img src="{{ url_for('uploaded_file', filename=p.strip()) }}" class="photo-thumb" alt="异常照片" role="button" tabindex="0" data-full="{{ url_for('uploaded_file', filename=p.strip()) }}" onerror="showPhotoMissing(this)">
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <span class="text-muted">暂无照片</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if rec.fb_desc or rec.fb_photo %}
+    <div class="card shadow-sm info-card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <span class="fw-bold">整改反馈</span>
+            {% if rec.fb_time %}<span class="float-end small">{{ rec.fb_time }}</span>{% endif %}
+        </div>
+        <div class="card-body">
+            {% if rec.fb_desc %}
+            <div class="mb-3">
+                <label class="form-label text-muted small fw-bold">反馈备注</label>
+                <div class="bg-light p-3 rounded border">{{ rec.fb_desc }}</div>
+            </div>
+            {% endif %}
+            {% if rec.fb_photo %}
+            <div>
+                <label class="form-label text-muted small fw-bold">反馈照片</label>
+                <div class="preview-container">
+                    {% for p in rec.fb_photo.split(',') %}
+                        {% if p.strip() %}
+                        <img src="{{ url_for('uploaded_file', filename=p.strip()) }}" class="photo-thumb" alt="反馈照片" role="button" tabindex="0" data-full="{{ url_for('uploaded_file', filename=p.strip()) }}" onerror="showPhotoMissing(this)">
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rec.notified_phones %}
+    <div class="card shadow-sm info-card mb-4">
+        <div class="card-header bg-light">
+            <span class="text-primary fw-bold"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 11 13M21.5 2.5l-7 19-3.5-8.5L2.5 9.5l19-7z"/></svg> 推送留痕（该手尾已通知的人员）</span>
+        </div>
+        <div class="card-body">
+            {% for np in notified_people %}
+                <span class="badge bg-secondary me-1 mb-1" style="font-size: .85rem;"{% if np.phone and np.name != np.phone %} title="电话 {{ np.phone }}"{% endif %}>{{ np.name }}</span>
+            {% endfor %}
+            <div class="text-muted small mt-2">含发起通知、超时提醒、反馈及派工通知的全部收件人（自动去重累计）；查不到姓名的人员显示号码，悬停可见完整电话。</div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if rec.display_status != '已闭环' %}
+    <div class="card shadow-sm info-card mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                <button class="btn btn-outline-primary" onclick="openFeedback({{ rid }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.9 1.9 0 0 1 2.7 0l.3.3a1.9 1.9 0 0 1 0 2.7L8.2 18.8 4 20z"/></svg> 反馈</button>
+                <button class="btn btn-outline-primary" onclick="openDispatch({{ rid }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 11 13M21.5 2.5l-7 19-3.5-8.5L2.5 9.5l19-7z"/></svg> 派工</button>
+                {% if can_urge and urge_targets %}
+                <button class="btn btn-outline-danger" onclick="urgeDetail({{ rid }}, {{ urge_targets|length }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.4 2.6H4.6L6 16z"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg> 催办({{ urge_targets|length }})</button>
+                {% endif %}
+                {% if can_add_responsible %}
+                <button class="btn btn-outline-primary" onclick="openAddResponsible({{ rid }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg> 追加责任人</button>
+                {% endif %}
+                {% if can_manage %}
+                <button class="btn btn-outline-primary" onclick="openClose({{ rid }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 7"/></svg> 闭环</button>
+                <button class="btn btn-outline-danger" onclick="openDelete({{ rid }})"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg> 删除</button>
+                {% endif %}
+            </div>
+            {% if not logged_in %}
+            <div class="text-center mt-2 small text-muted">反馈无需登录；催办/闭环/删除需登录，闭环删除仅限管理员或该手尾的提交人</div>
+            {% elif not can_manage %}
+            <div class="text-center mt-2 small text-muted">仅限管理员或该手尾的提交人操作</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if urge_logs %}
+    <div class="card shadow-sm info-card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <span class="fw-bold"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.4 2.6H4.6L6 16z"/><path d="M10 20a2.2 2.2 0 0 0 4 0"/></svg> 催办记录（共 {{ urge_logs|length }} 次）</span>
+        </div>
+        <div class="card-body">
+            {% for ul in urge_logs %}
+            <div class="d-flex flex-wrap align-items-center gap-1{% if not loop.last %} mb-2 pb-2 border-bottom{% endif %}">
+                <span class="fw-bold text-danger">{{ ul.actor_name or '未知' }}</span>
+                <span class="text-muted">催办了</span>
+                <span class="fw-bold">{{ ul.target_names or '相关责任人' }}</span>
+                {% if ul.created_at %}<span class="text-muted small">（{{ ul.created_at }}）</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</div>
+
+<div class="modal fade" id="feedbackModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/feedback" method="POST" enctype="multipart/form-data" onsubmit="return submitOnce(this, validateFeedbackForm())">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.2L16.6 4.4a1.9 1.9 0 0 1 2.7 0l.3.3a1.9 1.9 0 0 1 0 2.7L8.2 18.8 4 20z"/></svg>手尾异常反馈</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="row_idx" id="fb_row_idx">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger">反馈备注(必填)：</label>
+                        <textarea name="fb_desc" id="fb_desc_input" class="form-control border-danger" rows="3" placeholder="请输入本次处理的具体情况..." required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger">反馈照片(必填，可多选，提交前可删除)*：</label>
+                        <input type="file" id="fb_photo_input" class="form-control border-danger" accept="image/*" multiple onchange="handleFbPhotoSelect(event)">
+                        <div class="form-text text-danger">反馈照片为必填项，请至少上传一张整改后的现场照片</div>
+                        <div id="fb_preview_container" class="preview-container mt-2 border rounded p-2 bg-light min-vh-25"></div>
+                        <div id="fb_file_inputs"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">提交反馈</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="dispatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/dispatch" method="POST" onsubmit="return submitOnce(this, validateDispatchForm())">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 11 13M21.5 2.5l-7 19-3.5-8.5L2.5 9.5l19-7z"/></svg>派工给安装个人</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="row_idx" id="dp_row_idx" value="{{ rid }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger">派工人（谁派的）*</label>
+                        <input type="text" name="dispatch_by" id="dp_dispatch_by" class="form-control border-danger"
+                               value="{{ user_name or rec.dispatch_user_name or '' }}" placeholder="填写派工人姓名" required>
+                        <div class="form-text">已默认带出本人</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-danger">安装个人（派工对象）*</label>
+                        <input type="text" name="dispatch_user" id="dp_user_input" class="form-control border-danger" placeholder="输入姓名/工号/手机号点选" required>
+                        <div class="form-text">确认后立即推送通知给 TA</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">派工备注（可选）</label>
+                        <textarea name="dispatch_note" id="dp_note_input" class="form-control" rows="3" placeholder="例如：请优先处理该区域安装问题，完成后拍照反馈..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">确认派工并推送</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="closeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/close" method="POST" onsubmit="return submitOnce(this, true)">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 7"/></svg>手尾异常闭环确认</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="row_idx" id="close_row_idx">
+                    <p class="fs-5 text-center text-success">确认该手尾异常已处理完毕？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">确认闭环</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/delete" method="POST" onsubmit="return submitOnce(this, true)">
+                <div class="modal-header brand-head">
+                    <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 13h9l1-13M10 11v6M14 11v6"/></svg>删除异常记录</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="row_idx" id="del_row_idx">
+                    <p class="fs-5 text-center">确定要永久删除这条手尾异常吗？</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-brand">确认删除</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="addRespModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header brand-head">
+                <h5 class="modal-title"><svg class="ic-lg me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>追加责任人</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="ar_rid">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">从船海智云通讯录中选择（姓名 / 手机号 / 工号检索，全公司 3 万余人可选）</label>
+                    <input type="text" id="ar_search" class="form-control" placeholder="输入姓名/手机号/工号点选，可多次添加">
+                    <div class="form-text">追加后 TA 将收到通知</div>
+                </div>
+                <div id="ar_selected" class="mb-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-brand btn-primary" onclick="submitAddResponsible()">确认追加并推送</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+// V1.4.5 防重复提交：校验通过后立即禁用提交按钮（与后端 60s 幂等窗口双保险）
+function submitOnce(form, valid) {
+    if (!valid) return false;
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+        if (btn.disabled) {
+            alert('正在提交中，请勿重复点击…');
+            return false;
+        }
+        btn.disabled = true;
+        btn.dataset.origHtml = btn.innerHTML;
+        btn.innerHTML = '提交中…';
+    }
+    return true;
+}
+let fbFiles = [];
+
+// V1.3.2：照片加载失败（服务器上无该照片文件）时给出明确提示，而不是裂图
+function showPhotoMissing(img) {
+    const span = document.createElement('span');
+    span.className = 'photo-thumb d-inline-flex align-items-center justify-content-center text-danger small';
+    span.style.border = '1px dashed #dc3545';
+    span.textContent = '照片缺失';
+    if (img.parentNode) img.parentNode.replaceChild(span, img);
+}
+
+// ================= 派工选人：人员联想组件（与看板页一致） =================
+const STAFF_OPTIONS = {{ staff_list | tojson }};
+let STAFF_ITEMS = STAFF_OPTIONS.map(s => ({
+    label: s['姓名'] || '',
+    sublabel: [s['公司'], s['一级部门'], s['二级部门'], s['作业区'], s['电话']].filter(Boolean).join(' / '),
+    value: [s['公司'], s['一级部门'], s['二级部门'], s['作业区'], s['姓名'], s['电话']].join(' - ')
+})).filter(it => it.label);
+// 优先使用船海智云通讯录（异步加载后覆盖人员台账）
+(function loadChzUsers() {
+    fetch('/api/chz_users').then(r => r.json()).then(d => {
+        if (d && d.ok && Array.isArray(d.items) && d.items.length) {
+            const items = d.items.filter(it => it.name && it.phone);
+            if (items.length) {
+                STAFF_ITEMS = items.map(it => ({
+                    label: it.name,
+                    sublabel: [it.code, it.phone].filter(Boolean).join(' / '),
+                    value: [it.name, it.phone].join(' - ')
+                }));
+            }
+        }
+    }).catch(() => { /* 接口失败则继续用人员台账 */ });
+})();
+
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ===== V1.4.4 标签式选人工具 =====
+function _staffPhone(v) {
+    const m = String(v || '').match(/(1[3-9]\d{9})/);
+    return m ? m[1] : '';
+}
+function _staffLabel(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    const ph = _staffPhone(v);
+    const arr = (typeof STAFF_ITEMS !== 'undefined' && STAFF_ITEMS) || [];
+    if (ph) {
+        for (let i = 0; i < arr.length; i++) {
+            if ((arr[i].value || '').indexOf(ph) >= 0) return arr[i].label || '';
+        }
+    }
+    const seg = String(v).split(',').pop() || v;
+    const ps = seg.split(' - ').map(s => s.trim()).filter(Boolean);
+    return ps.length >= 2 ? (ps[ps.length - 2] || ps[ps.length - 1]) : (ps[0] || v);
+}
+function syncStaffPick(input) {
+    try { if (input && typeof input.__renderPickChip === 'function') input.__renderPickChip(); } catch (e) { }
+}
+// 联想候选"点一下才选中"：手指滑动/滚动列表绝不误选（移动>12px 视为滑动忽略）
+function bindTapCommit(el, commitFn) {
+    if (window.PointerEvent) {
+        el.addEventListener('pointerdown', function (e) {
+            el.__tapX = e.clientX; el.__tapY = e.clientY;
+        });
+        el.addEventListener('click', function (e) {
+            if (el.__tapX !== undefined &&
+                (Math.abs(e.clientX - el.__tapX) > 12 || Math.abs(e.clientY - el.__tapY) > 12)) {
+                el.__tapX = undefined; return;
+            }
+            el.__tapX = undefined;
+            e.preventDefault(); e.stopPropagation();
+            commitFn(e);
+        });
+    } else {
+        el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); commitFn(e); });
+    }
+}
+
+function attachSuggest(input, options, opts = {}) {
+    const maxShow = opts.max || 20;
+    const wrap = document.createElement('div');
+    wrap.className = 'suggest-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.setAttribute('autocomplete', 'off');
+    const dd = document.createElement('div');
+    dd.className = 'suggest-dropdown';
+    wrap.appendChild(dd);
+    function resolveItems() {
+        const src = typeof options === 'function' ? options() : options;
+        return src.map(o => {
+            if (typeof o === 'string') return { label: o, sublabel: '', value: o };
+            return { label: o.label || '', sublabel: o.sublabel || '', value: o.value !== undefined ? o.value : o.label };
+        });
+    }
+
+    // ===== V1.4.4 标签式选人：选完把长文本折叠成"姓名芯片"，点 ✕ 即删、点芯片重选 =====
+    let chipBox = null;
+    function renderPickChip() {
+        if (!opts.chip || !chipBox) return;
+        const val = (input.value || '').trim();
+        const ph = _staffPhone(val);
+        if (ph && val) {
+            chipBox.innerHTML = '';
+            const pill = document.createElement('span');
+            pill.className = 'pick-chip-pill';
+            const nm = document.createElement('span');
+            nm.className = 'pick-chip-name';
+            nm.textContent = _staffLabel(val);
+            const x = document.createElement('span');
+            x.className = 'pick-chip-x';
+            x.textContent = '×';
+            x.title = '删除该人员';
+            x.addEventListener('click', function (e) { e.stopPropagation(); clearPick(false); });
+            pill.addEventListener('click', function (e) { if (e.target === x) return; clearPick(true); });
+            pill.appendChild(nm); pill.appendChild(x);
+            chipBox.appendChild(pill);
+            chipBox.style.display = 'flex';
+            input.style.display = 'none';
+        } else {
+            chipBox.style.display = 'none';
+            input.style.display = '';
+        }
+    }
+    function clearPick(reopen) {
+        input.value = '';
+        if (input.dataset) delete input.dataset.picked;
+        renderPickChip();
+        if (reopen) { try { input.focus(); } catch (e) { } }
+        if (typeof opts.onClear === 'function') opts.onClear();
+    }
+    if (opts.chip) {
+        chipBox = document.createElement('div');
+        chipBox.className = 'pick-chip-row';
+        chipBox.style.display = 'none';
+        wrap.insertBefore(chipBox, input);
+        input.__renderPickChip = renderPickChip;
+        renderPickChip();
+    }
+
+    function hide() { dd.style.display = 'none'; dd.innerHTML = ''; }
+    dd.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+    function filterList() {
+        const q = input.value.trim().toLowerCase();
+        const items = resolveItems();
+        let matched;
+        if (!q) {
+            if (!opts.showAll) { hide(); return; }
+            matched = items;
+        } else {
+            matched = items.filter(it => (it.label + ' ' + it.sublabel + ' ' + it.value).toLowerCase().includes(q));
+        }
+        if (!matched.length) {
+            dd.innerHTML = '<div class="suggest-empty">无匹配选项</div>';
+            dd.style.display = 'block';
+            return;
+        }
+        dd.innerHTML = '';
+        matched.slice(0, maxShow).forEach(it => {
+            const div = document.createElement('div');
+            div.className = 'suggest-item';
+            div.innerHTML = it.sublabel
+                ? '<div class="suggest-label">' + escapeHtml(it.label) + '</div><div class="suggest-sub">' + escapeHtml(it.sublabel) + '</div>'
+                : '<div class="suggest-label">' + escapeHtml(it.label) + '</div>';
+            // V1.4.4：改为"点一下才选中"——手指在列表上滑动/滚动绝不误选；
+            // 点选后延迟隐藏下拉框，吸收随后的残余点击事件，避免点中下拉正下方的"删除"按钮
+            bindTapCommit(div, function () {
+                _lastSuggestPickAt = Date.now();
+                input.value = it.value;
+                if (opts.onPick) opts.onPick(it);
+                if (input.getAttribute('oninput')) input.oninput();
+                if (opts.chip) {
+                    renderPickChip();
+                    try { input.blur(); } catch (e) { }
+                }
+                setTimeout(hide, 400);
+            });
+            dd.appendChild(div);
+        });
+        dd.style.display = 'block';
+    }
+    input.addEventListener('input', filterList);
+    input.addEventListener('focus', filterList);
+    input.addEventListener('blur', function () { setTimeout(hide, 150); });
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) hide(); });
+    return { hide: hide, filterList: filterList };
+}
+
+function attachStaffSuggest(input) {
+    attachSuggest(input, function () { return STAFF_ITEMS; },
+        {
+            max: 200, showAll: true, placeholder: '输入姓名/工号/手机号筛选，或直接点选', chip: true,
+            onPick: function () { input.dataset.picked = '1'; }
+        });
+    // 手动清空输入框时，解除"已选"标记
+    input.addEventListener('input', function () {
+        if (!input.value.trim()) delete input.dataset.picked;
+    });
+}
+
+// ===== 追加责任人：从船海智云通讯录全量检索（V1.3.2：不再只搜已注册账号） =====
+let _lastSuggestPickAt = 0;
+function attachUserSuggest(input, opts) {
+    opts = opts || {};
+    const maxShow = opts.max || 50;
+    const wrap = document.createElement('div');
+    wrap.className = 'suggest-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.setAttribute('autocomplete', 'off');
+    const dd = document.createElement('div');
+    dd.className = 'suggest-dropdown';
+    wrap.appendChild(dd);
+    function hide() { dd.style.display = 'none'; dd.innerHTML = ''; }
+    dd.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+    function filterList() {
+        const q = input.value.trim().toLowerCase();
+        // 数据源 = STAFF_ITEMS（船海智云通讯录全量，页面加载时已异步拉取；未就绪时回退人员台账）
+        const src = (typeof STAFF_ITEMS !== 'undefined' && STAFF_ITEMS.length) ? STAFF_ITEMS : [];
+        let matched;
+        if (!q) {
+            matched = src;      // 空输入直接展示全部（含姓名+工号+手机号）
+        } else {
+            matched = src.filter(it => (it.label + ' ' + it.sublabel + ' ' + it.value).toLowerCase().includes(q));
+        }
+        if (!matched.length) {
+            dd.innerHTML = '<div class="suggest-empty">' + (q ? '船海智云通讯录中无匹配人员' : '通讯录加载中，请稍候再试') + '</div>';
+            dd.style.display = 'block';
+            return;
+        }
+        dd.innerHTML = '';
+        matched.slice(0, maxShow).forEach(it => {
+            const div = document.createElement('div');
+            div.className = 'suggest-item';
+            // value 形如 "姓名 - 手机号"
+            const parts = String(it.value || '').split(' - ');
+            const name = parts[0] || it.label || '';
+            const phone = parts.length > 1 ? parts[parts.length - 1] : '';
+            const raw = { name: name, phone: phone, emp_no: (it.sublabel || '').split(' / ')[0] || '' };
+            const item = { label: it.label, sublabel: it.sublabel, value: it.value, raw: raw };
+            div.innerHTML = it.sublabel
+                ? '<div class="suggest-label">' + escapeHtml(it.label) + '</div><div class="suggest-sub">' + escapeHtml(it.sublabel) + '</div>'
+                : '<div class="suggest-label">' + escapeHtml(it.label) + '</div>';
+            // V1.4.4：点一下才加入（滑动/滚动列表绝不误选）
+            bindTapCommit(div, function () {
+                _lastSuggestPickAt = Date.now();
+                if (opts.onPick) opts.onPick(item);
+                setTimeout(hide, 400);
+            });
+            dd.appendChild(div);
+        });
+        dd.style.display = 'block';
+    }
+    input.addEventListener('input', filterList);
+    input.addEventListener('focus', filterList);
+    input.addEventListener('blur', function () { setTimeout(hide, 150); });
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) hide(); });
+}
+
+// ===== 追加责任人：已选列表 =====
+let arSelected = [];
+let arSuggestReady = false;
+let _arBusy = false;   // V1.4.5 防重复：提交期间上锁，杜绝连点
+function renderArSelected() {
+    const box = document.getElementById('ar_selected');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!arSelected.length) {
+        box.innerHTML = '<span class="text-muted small">尚未选择责任人</span>';
+        return;
+    }
+    arSelected.forEach((it, i) => {
+        const span = document.createElement('span');
+        span.className = 'badge bg-primary text-white me-2 mb-1';
+        span.style.fontSize = '.95rem';
+        span.innerHTML = escapeHtml(it.name) + '（' + escapeHtml(it.phone) + '）';
+        const del = document.createElement('span');
+        del.style.cssText = 'cursor:pointer;margin-left:6px;font-weight:bold;';
+        del.textContent = '×';
+        del.addEventListener('click', function () {
+            if (Date.now() - _lastSuggestPickAt < 600) return; // 防幽灵点击
+            arSelected.splice(i, 1);
+            renderArSelected();
+        });
+        span.appendChild(del);
+        box.appendChild(span);
+    });
+}
+
+function openAddResponsible(rid) {
+    document.getElementById('ar_rid').value = rid;
+    arSelected = [];
+    renderArSelected();
+    const input = document.getElementById('ar_search');
+    input.value = '';
+    if (!arSuggestReady) {
+        // 仅首次打开时绑定检索组件（避免重复包裹 input 导致事件叠加）
+        attachUserSuggest(input, {
+            onPick: function (it) {
+                // 按手机号去重后加入已选列表
+                const ph = it.raw && it.raw.phone ? it.raw.phone : '';
+                if (!ph || arSelected.some(x => x.phone === ph)) return;
+                arSelected.push({ name: (it.raw && it.raw.name) || '', phone: ph });
+                renderArSelected();
+                input.value = '';
+            }
+        });
+        arSuggestReady = true;
+    }
+    new bootstrap.Modal(document.getElementById('addRespModal')).show();
+    setTimeout(() => input.focus(), 300);
+}
+
+async function submitAddResponsible() {
+    if (_arBusy) return;
+    if (!arSelected.length) { alert('请先选择要追加的责任人'); return; }
+    const rid = document.getElementById('ar_rid').value;
+    const body = new URLSearchParams();
+    body.append('rid', rid);
+    body.append('items', JSON.stringify(arSelected));
+    _arBusy = true;
+    const btn = document.querySelector('#addRespModal .modal-footer .btn-primary');
+    if (btn) { btn.disabled = true; btn.dataset.origText = btn.textContent; btn.textContent = '提交中…'; }
+    let resp;
+    try {
+        resp = await fetch('/add_responsible', { method: 'POST', body: body });
+    } catch (e) {
+        alert('网络错误，请重试');
+        _arBusy = false;
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '确认追加并推送'; }
+        return;
+    }
+    let data = {};
+    try { data = await resp.json(); } catch (e) { /* ignore */ }
+    alert(data.msg || (resp.ok ? '已追加责任人' : '操作失败'));
+    if (data.ok) { location.reload(); return; }
+    _arBusy = false;
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText || '确认追加并推送'; }
+}
+
+function openDispatch(idx) {
+    document.getElementById('dp_row_idx').value = idx;
+    const dpEl = document.getElementById('dp_user_input');
+    dpEl.value = '';
+    document.getElementById('dp_note_input').value = '';
+    syncStaffPick(dpEl);
+    new bootstrap.Modal(document.getElementById('dispatchModal')).show();
+    setTimeout(() => { if (dpEl) dpEl.focus(); }, 300);
+}
+
+// 派工表单校验：必选安装个人
+function validateDispatchForm() {
+    const b = document.getElementById('dp_dispatch_by').value.trim();
+    if (!b) {
+        alert('请填写派工人姓名（派工流程将记录"谁派给谁"）');
+        return false;
+    }
+    const u = document.getElementById('dp_user_input').value.trim();
+    if (!u) {
+        alert('请选择要派工的安装个人');
+        return false;
+    }
+    return true;
+}
+
+function openFeedback(idx) {
+    document.getElementById('fb_row_idx').value = idx;
+    fbFiles = [];
+    renderFbPreviews();
+    document.getElementById('fb_desc_input').value = '';
+    new bootstrap.Modal(document.getElementById('feedbackModal')).show();
+}
+
+function validateFeedbackForm() {
+    const desc = document.getElementById('fb_desc_input').value.trim();
+    if (!desc) {
+        alert('请填写反馈备注');
+        return false;
+    }
+    if (!fbFiles.length) {
+        alert('反馈照片为必填项，请至少上传一张整改后的现场照片');
+        document.getElementById('fb_photo_input').focus();
+        return false;
+    }
+    return true;
+}
+
+function openClose(idx) {
+    document.getElementById('close_row_idx').value = idx;
+    new bootstrap.Modal(document.getElementById('closeModal')).show();
+}
+
+function openDelete(idx) {
+    document.getElementById('del_row_idx').value = idx;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+function handleFbPhotoSelect(event) {
+    Array.from(event.target.files).forEach(file => fbFiles.push(file));
+    event.target.value = '';
+    renderFbPreviews();
+}
+
+function removeFbPhoto(fileIndex) {
+    fbFiles.splice(fileIndex, 1);
+    renderFbPreviews();
+}
+
+function renderFbPreviews() {
+    const previewContainer = document.getElementById('fb_preview_container');
+    const hiddenInputsContainer = document.getElementById('fb_file_inputs');
+    previewContainer.innerHTML = '';
+    hiddenInputsContainer.innerHTML = '';
+    if (fbFiles.length === 0) {
+        previewContainer.innerHTML = '<span class="text-muted small">暂无照片</span>';
+        return;
+    }
+    const dt = new DataTransfer();
+    fbFiles.forEach((file, fileIndex) => {
+        dt.items.add(file);
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const wrap = document.createElement('div');
+            wrap.className = 'thumb-wrap';
+            wrap.innerHTML = '<img src="' + e.target.result + '" class="photo-thumb"><span class="del-btn" onclick="removeFbPhoto(' + fileIndex + ')">×</span>';
+            previewContainer.appendChild(wrap);
+        }
+        reader.readAsDataURL(file);
+    });
+    const realInput = document.createElement('input');
+    realInput.type = 'file';
+    realInput.name = 'fb_photos[]';
+    realInput.style.display = 'none';
+    realInput.files = dt.files;
+    hiddenInputsContainer.appendChild(realInput);
+}
+
+// ================= 初始化：派工选人联想 =================
+document.addEventListener('DOMContentLoaded', function () {
+    attachStaffSuggest(document.getElementById('dp_user_input'));
+});
+</script>
+
+<div id="urgeConfirmBox" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;max-width:340px;width:100%;padding:20px 18px;box-shadow:0 8px 30px rgba(0,0,0,.25);">
+        <div id="urgeConfirmMsg" style="font-size:15px;line-height:1.6;color:#212529;white-space:pre-wrap;word-break:break-all;"></div>
+        <div style="display:flex;gap:10px;margin-top:18px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm flex-fill" onclick="_urgeConfirmAnswer(false)">取消</button>
+            <button type="button" class="btn btn-danger btn-sm flex-fill" onclick="_urgeConfirmAnswer(true)">确定催办</button>
+        </div>
+    </div>
+</div>
+<script>
+let _urgeResolve = null;
+let _urgeBusy = false;   // V1.4.5 防重复：催办请求期间上锁，杜绝连点重复推送
+function urgeConfirm(msg) {
+    return new Promise(function (resolve) {
+        document.getElementById('urgeConfirmMsg').textContent = msg;
+        document.getElementById('urgeConfirmBox').style.display = 'flex';
+        _urgeResolve = resolve;
+    });
+}
+function _urgeConfirmAnswer(ok) {
+    const box = document.getElementById('urgeConfirmBox');
+    if (box) box.style.display = 'none';
+    if (_urgeResolve) { const r = _urgeResolve; _urgeResolve = null; r(ok); }
+}
+async function urgeDetail(rid, cnt) {
+    if (_urgeBusy) return;
+    const ok = await urgeConfirm('确认催办这条手尾？\n\n将同时提醒该手尾的全部相关责任人（共 ' + cnt + ' 人），并留下催办记录。');
+    if (!ok) return;
+    _urgeBusy = true;
+    try {
+        const resp = await fetch('/api/urge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rid: rid })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            alert(data.msg || '催办成功');
+            location.reload();
+            return;
+        }
+        alert(data.msg || '催办失败');
+        _urgeBusy = false;
+    } catch (e) {
+        alert('催办请求失败：' + e.message);
+        _urgeBusy = false;
+    }
+}
+</script>
+</body>
+</html>
